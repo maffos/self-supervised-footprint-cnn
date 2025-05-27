@@ -22,7 +22,6 @@ class BuildingClassificationModel(nn.Module):
         self.bias = self.norm is None
         self.downsample = downsample
         self.num_groups = block_params.get('num_groups', None)
-        self.block = self._select_block(block)
         self.hidden_dims = hidden_dims if hidden_dims else [self.triangle_feature_dim * 2 ** i for i in range(len(blocks_per_layer) + 1)]
         self.triangle_feature_dim = triangle_embed_params['out_channels']
         assert self.hidden_dims[0] == self.triangle_feature_dim, 'First Hidden layer needs to have same size as triangle feature embedding'
@@ -38,9 +37,9 @@ class BuildingClassificationModel(nn.Module):
         for layer in range(len(self.hidden_dims)-1):
             block_list = nn.ModuleList()
             for _ in range(blocks_per_layer[layer]-1):
-                block_list.append(self.block(self.hidden_dims[layer], self.hidden_dims[layer],**block_params))
+                block_list.append(TriangleFeatureBlock(self.hidden_dims[layer], self.hidden_dims[layer],**block_params))
             #last block of layer
-            block_list.append(self.block(self.hidden_dims[layer], self.hidden_dims[layer+1],**block_params))
+            block_list.append(TriangleFeatureBlock(self.hidden_dims[layer], self.hidden_dims[layer+1],**block_params))
             self.layer_list.append(block_list)
 
         # last layer
@@ -48,7 +47,7 @@ class BuildingClassificationModel(nn.Module):
             layer = len(hidden_dims) - 1
             block_list = nn.ModuleList()
             for _ in range(blocks_per_layer[-1]):
-                block_list.append(self.block(self.hidden_dims[layer], self.hidden_dims[layer],**block_params))
+                block_list.append(TriangleFeatureBlock(self.hidden_dims[layer], self.hidden_dims[layer],**block_params))
 
             self.layer_list.append(block_list)
 
