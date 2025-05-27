@@ -1,0 +1,1 @@
+LengthInf LengthSup LengthBase CosAngle+1 SinAngle+1 Area Height
