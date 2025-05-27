@@ -1,3 +1,7 @@
+from torch import nn
+from src.models import TriangleConv, TriangleFeatureExtractor, TriangleFeatureBlock
+from src.utils import get_activation, get_norm_layer
+
 class UNetTriangleModelRegression(nn.Module):
     def __init__(self, triangle_embed_params,
                  block_params,
@@ -18,17 +22,15 @@ class UNetTriangleModelRegression(nn.Module):
         self.d_model_triangle = triangle_embed_params['out_channels']
         self.hidden_dims = hidden_dims if hidden_dims is not None else [self.d_model_triangle*2**i for i in range(num_layers)]
         self.num_layers = len(self.hidden_dims)
-        self.diff_encoder = TrianglePointEncoder()
+        self.diff_encoder = TriangleConv()
         self.use_diff_encoder = use_diff_encoder
         self.num_groups = [initial_num_groups*2**i for i in range(self.num_layers)]
         self.downsample = downsample
         self.blocks_per_layer = blocks_per_layer if isinstance(blocks_per_layer, list) else [blocks_per_layer for _ in range(self.num_layers)]
 
         input_channels = 8 if self.use_diff_encoder else 2
-        #self.d_pos = d_pos if self.project_coords else input_channels
         self.d_pos = input_channels
         has_bias = (norm == None)
-        self.block = self._select_block(block)
 
         if block_params['append_coords']:
             self.coords_pathway = nn.ModuleList()
@@ -52,7 +54,7 @@ class UNetTriangleModelRegression(nn.Module):
         if block in ['TriangleFeatureBlock','resnet']:
             self.triangle_embedding = TriangleFeatureExtractor(in_channels=self.d_pos, **triangle_embed_params)
         elif block == 'LinearProjection':
-            self.triangle_embedding= TriangleFeatureExtractorProjection(in_channels=self.d_pos, **triangle_embed_params)
+            self.triangle_embedding= TriangleFeatureExtractor(in_channels=self.d_pos, **triangle_embed_params)
         self.norm_embed = get_norm_layer(triangle_embed_params['norm'], self.d_model_triangle)
 
         self.encoder_blocks = nn.ModuleList()
@@ -61,7 +63,7 @@ class UNetTriangleModelRegression(nn.Module):
         assert self.d_model_triangle == self.hidden_dims[0], 'd_model_triangle and hidden_dims[0] are not the same'
         for i in range(self.blocks_per_layer[0]-1):
             self.encoder_blocks_layer1.append(
-                self.block(
+                TriangleFeatureBlock(
                    self.hidden_dims[0],
                     self.hidden_dims[0],
                     num_groups=self.num_groups[0],
@@ -85,7 +87,7 @@ class UNetTriangleModelRegression(nn.Module):
 
             blocks_level = []
             if downsample == 'maxpool':
-                blocks_level.append(self.block(
+                blocks_level.append(TriangleFeatureBlock(
                         self.hidden_dims[level-1],
                         self.hidden_dims[level],
                         num_groups=self.num_groups[level],
@@ -96,7 +98,7 @@ class UNetTriangleModelRegression(nn.Module):
                     ))
                 for i in range(self.blocks_per_layer[level]-1):
                     blocks_level.append(
-                        self.block(
+                        TriangleFeatureBlock(
                             self.hidden_dims[level],
                             self.hidden_dims[level],
                             d_pos=self.d_pos * 2 ** level,
@@ -107,7 +109,7 @@ class UNetTriangleModelRegression(nn.Module):
             else:
                 for i in range(self.blocks_per_layer[level]):
                     blocks_level.append(
-                        self.block(
+                        TriangleFeatureBlock(
                             self.hidden_dims[level],
                             self.hidden_dims[level],
                             d_pos=self.d_pos * 2 ** level,
@@ -116,10 +118,8 @@ class UNetTriangleModelRegression(nn.Module):
                         )
                     )
             self.encoder_blocks.append(nn.ModuleList(blocks_level))
-            #self.encoder_norms.append(get_norm_layer(norm, self.hidden_dims[level], num_groups=num_groups))
 
         self.decoder_blocks = nn.ModuleList()
-        #self.decoder_norms = nn.ModuleList()
         self.upsamples = nn.ModuleList()
 
         #Decoder
@@ -128,7 +128,7 @@ class UNetTriangleModelRegression(nn.Module):
                 nn.Upsample(mode='linear',align_corners=True)
             )
 
-            blocks_level = [self.block(
+            blocks_level = [TriangleFeatureBlock(
                         self.hidden_dims[level]+self.hidden_dims[level+1],
                         self.hidden_dims[level],
                         d_pos=self.d_pos * 2 ** level,
@@ -141,7 +141,7 @@ class UNetTriangleModelRegression(nn.Module):
                     )]
             for i in range(self.blocks_per_layer[level]-1):
                 blocks_level.append(
-                    self.block(
+                    TriangleFeatureBlock(
                         self.hidden_dims[level],
                         self.hidden_dims[level],
                         d_pos=self.d_pos * 2 ** level,
@@ -150,20 +150,7 @@ class UNetTriangleModelRegression(nn.Module):
                     )
                 )
             self.decoder_blocks.append(nn.ModuleList(blocks_level))
-            #self.decoder_norms.append(get_norm_layer(norm, self.hidden_dims[level], num_groups=num_groups))
-
         self.out_layer = nn.Conv1d(self.hidden_dims[0],num_classes,1)
-
-    def _select_block(self, block):
-        blocks = {
-            'LinearProjection': TriangleFeatureBlockLinearProjection,
-            'TriangleFeatureBlock': TriangleFeatureBlock,
-            'resnet': ResnetBlock
-        }
-        try:
-            return blocks[block]
-        except KeyError:
-            raise NotImplementedError(f'Invalid Block: {block}')
 
     def _initialise_task_head(self, num_layers, in_channels, out_channels, num_targets, dropout, head_type='mlp'):
         if head_type == 'mlp':
@@ -175,14 +162,13 @@ class UNetTriangleModelRegression(nn.Module):
             layers.append(nn.Conv1d(out_channels, num_targets, kernel_size=1))
             return nn.Sequential(*layers)
         else:
-            return self.block(in_channels, num_targets,
+            return TriangleFeatureBlock(in_channels, num_targets,
                               dropout=dropout, num_groups=self.num_groups[0], norm='group')
 
     def forward(self, x):
 
         input_dims = []
         coords = self.diff_encoder(x) if self.use_diff_encoder else x
-        #coords = self.coord_proj(coords_input)
         coord_list = [coords]
         for coords_down,pool in zip(self.coords_pathway,self.coord_pooling_layers) or []:
             if pool is not None:
@@ -191,7 +177,6 @@ class UNetTriangleModelRegression(nn.Module):
             coord_list.append(coords)
 
         #Encoder
-        #local_embeddings = self.act(self.norm_embed(self.triangle_embedding(coord_list[0])))
         x = self.activation(self.norm_embed(self.triangle_embedding(coord_list[0])))
         skip_connections = []
         for block in self.encoder_blocks_layer1:

@@ -4,6 +4,7 @@ from torch_geometric.data import DataLoader as PyGDataLoader
 from torch_geometric.data import Data as GraphData
 import os
 import geopandas as gpd
+import pandas as pd
 import copy
 from collections import defaultdict
 from data.utils import *
@@ -67,17 +68,9 @@ class TriangleFeatureDataset(Dataset):
         self.max_extent = self._get_max_extent('x')
 
     def __len__(self):
-        """
-        Return the number of samples in the dataset.
-        """
         return len(self.data['x'])
 
     def __getitem__(self, idx):
-        """
-        Returns a single data sample at the specified index.
-        :param idx: Index of the sample to retrieve.
-        :return: A dictionary containing 'x' and 'y' tensors for the specified sample.
-        """
         # Retrieve the x, y, and adj_matrix for the specified index
         x = self.data['x'][idx]
         y = self.data['y'][idx]
@@ -115,7 +108,6 @@ class TriangleFeatureDataset(Dataset):
         return matrix_shape[1]
 
     def _initialize_transforms(self, transforms):
-        """Initialize and validate transformation list."""
         if transforms is None:
             return None
         transform_map = {
@@ -247,8 +239,38 @@ class TriangleFeatureDataset(Dataset):
     def _is_valid_dataloader(self, batch_size):
         return zero_padding in self.transform or self.bucketize or batch_size == 1
 
-    def std(self):
-        return STD_REGRESSION
+    def target_statistics(self):
+        y = self.data['y']
+        mean = np.zeros(7)
+        std = np.zeros(7)
+        max_vals = np.zeros(7) - np.inf
+        min_vals = np.ones(7) * np.inf
+
+        for idx in range(len(y)):
+            footprint = np.array(y[idx])
+            mean += footprint.mean(axis=0)
+
+            footprint_max = footprint.max(axis=0)
+            footprint_min = footprint.min(axis=0)
+
+            max_vals = np.maximum(max_vals, footprint_max)
+            min_vals = np.minimum(min_vals, footprint_min)
+
+        mean /= len(y)
+
+        for idx in range(len(y)):
+            footprint = np.array(y[idx])
+            std += np.mean((footprint - mean) ** 2, axis=0)
+        std /= len(y)
+        std = np.sqrt(std)
+        statistics = pd.DataFrame(np.stack([mean,min_vals,max_vals,std], axis=0),index=['mean','min','max','std'],
+                                  columns=self.get_feature_names())
+
+
+        return statistics
+
+    def footprint_std(self):
+        return polygon_min_max_std(self.data['x'])
 
 class TriangleFeatureGraphDataset(TriangleFeatureDataset):
 
@@ -256,7 +278,6 @@ class TriangleFeatureGraphDataset(TriangleFeatureDataset):
 
         super(TriangleFeatureGraphDataset, self).__init__(*args, **kwargs)
         self.compute_edge_weights = compute_edge_weights
-        #self.nodes = TriangleFeatureDataset(*args,**kwargs)
 
     def __getitem__(self, idx):
         batch = super().__getitem__(idx)
@@ -267,6 +288,9 @@ class TriangleFeatureGraphDataset(TriangleFeatureDataset):
         return data
 
 class ClassificationDataset(Dataset):
+    """
+    This code is taken and modified from https://github.com/Huyaohui122/DPCN
+    """
     def __init__(self, split='train', data_dir = './data/', transforms = None, raw_coordinates = False, no_val_set = False):
 
         super(ClassificationDataset, self).__init__()
@@ -456,20 +480,10 @@ class ClassificationDataset(Dataset):
         return self.label.shape[0]
 
     def std(self):
-        if self.raw_coordinates:
-            return STD_CLASSIFICATION_RAW
-        else:
-            return STD_CLASSIFICATION_RESAMPLE
+        polygon_min_max_std(self.point_cloud)
 
 class BuildingSimplificationDataset(Dataset):
     def __init__(self, data_dir, split, transforms=None, bucketize = False, target_transform = None, batch_size = 1):
-        """
-        Initialize the dataset.
-
-        :param features: List of feature arrays.
-        :param labels: List of label arrays.
-        :param params: Parameters dictionary containing feature indices and other configurations.
-        """
         super(BuildingSimplificationDataset, self).__init__()
         data = np.load('{}/vertex_{}.npy'.format(data_dir, split), allow_pickle=True)
         self.coords = [footprint[:,4:6] for footprint in data]
@@ -480,7 +494,6 @@ class BuildingSimplificationDataset(Dataset):
         self.target_transform = self._initialize_transforms(target_transform)
 
     def _initialize_transforms(self, transforms):
-        """Initialize and validate transformation list."""
         if transforms is None:
             return None
         transform_map = {
@@ -516,11 +529,16 @@ class BuildingSimplificationDataset(Dataset):
         out_dict = {'x': x, 'y': y, 'meta_data': meta_data} if meta_data is not None else {'x': x, 'y': y}
         return out_dict
 
-    def std(self):
-        return STD_SIMPLIFICATION
+    def footprint_std(self):
+        return polygon_min_max_std(self.coords)
 
     def get_min_max(self):
-        return MIN_SIMPLIFICATION,MAX_SIMPLIFICATION
+        min_value = np.inf
+        max_value = -np.inf
+        for coords in self.coords:
+            min_value = min(min_value, np.min(coords))
+            max_value = max(max_value, np.max(coords))
+        return min_value, max_value
 
     def bucketize_and_batch(self, coords, labels, batch_size):
         """
@@ -540,7 +558,6 @@ class BuildingSimplificationDataset(Dataset):
             buckets[bucket_key].append((x, y))
 
         # Create batches from each bucket
-        #batches = {'x': [], 'y': []}
         xs,ys = [],[]
         for bucket_key, items in buckets.items():
             # Split the bucket into batches
@@ -558,7 +575,6 @@ class BuildingSimplificationGraphDataset(BuildingSimplificationDataset):
 
     def __init__(self, *args, edge_attr_type = 'distance_weights', edge_attr_params = {}, **kwargs):
         super(BuildingSimplificationGraphDataset, self).__init__(*args, **kwargs)
-        #self.data = BuildingSimplificationDataset(*args, **kwargs)
         self.edge_attr_fn = self._get_edge_attr_fn(edge_attr_type)
         self.edge_attr_params = self._init_edge_attr_params(edge_attr_params,edge_attr_type)
 
@@ -584,8 +600,6 @@ class BuildingSimplificationGraphDataset(BuildingSimplificationDataset):
         edge_index = create_polygon_edge_index(item_dict['x'].shape[0]).to(item_dict['x'].device)
         edge_attr = self.edge_attr_fn(item_dict['x'], edge_index, **self.edge_attr_params) if self.edge_attr_fn is not None else None
         data = GraphData(x=item_dict['x'], edge_index=edge_index, y=item_dict['y'], edge_attr=edge_attr)
-        #if (edge_attr is not None) else GraphData(x=item_dict['x'], edge_index=edge_index, y=item_dict['y'])
-
         return data
 
 

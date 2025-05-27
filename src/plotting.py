@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 from matplotlib import patches
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
+from matplotlib.patches import FancyArrowPatch
+import matplotlib as mpl
 from shapely.geometry import Polygon
 import os
 
@@ -340,3 +343,267 @@ def plot_iou_hd_quantiles(hd_df, iou_df, plot_dir, quantiles = [0.,0.25,0.5,0.75
         os.makedirs(plot_dir)
     plt.savefig(os.path.join(plot_dir, "iou_hd_quantiles.png"), dpi=300, bbox_inches='tight')
     plt.show()
+
+    def create_fig1():
+        # ----------------------------
+        # LaTeX Setup for matplotlib
+        # ----------------------------
+        mpl.rcParams['text.usetex'] = True
+        mpl.rcParams['text.latex.preamble'] = r"""
+        \usepackage[dvipsnames]{xcolor}
+        \definecolor{lime}{rgb}{0.00,1.00,0.00}
+        \definecolor{dodgerblue}{rgb}{0.12,0.56,1.00}
+        \definecolor{cadmiumgreen}{rgb}{0.0, 0.42, 0.24}
+        \definecolor{bleudefrance}{rgb}{0.19, 0.55, 0.91}
+        """
+
+        # ----------------------------
+        # Common Settings & Node Positions
+        # ----------------------------
+        n_nodes = 6
+        theta = np.linspace(0, 2 * np.pi, n_nodes, endpoint=False)
+        radius = 3
+        # Position nodes evenly on a circle.
+        pos = {i: (radius * np.cos(t), radius * np.sin(t)) for i, t in enumerate(theta)}
+        node_size = 700
+        node_radius_pt = np.sqrt(node_size) / 2  # ≈13.2 points
+        # ----------------------------
+        # Create Figure and Grid Layout (3 segments: Input, Middle, Output)
+        # ----------------------------
+        fig = plt.figure(figsize=(20, 10))
+        gs = GridSpec(1, 3, width_ratios=[1, 1, 1], wspace=0.3)
+
+        def draw_offset_labels(ax, pos, labels, fontsize=12, offset_x=0.3, offset_y=0.2):
+
+            for i, text in labels.items():
+                x, y = pos[i]
+                # Choose alignment and a small offset in data coordinates
+                dx = offset_x if x >= 0 else -offset_x
+                dy = offset_y if y >= 0 else -offset_y
+
+                if x > 0 and y > 0:
+                    ha, va = 'left', 'bottom'
+                elif x < 0 and y > 0:
+                    ha, va = 'right', 'bottom'
+                elif x < 0 and y < 0:
+                    ha, va = 'right', 'top'
+                elif x > 0 and y < 0:
+                    ha, va = 'left', 'top'
+                else:
+                    ha, va = 'center', 'center'
+
+                ax.text(x + dx, y + dy, text,
+                        ha=ha, va=va, fontsize=fontsize)
+
+        def draw_edges_with_shrink(ax, pos, edgelist,
+                                   arrowstyle='-|>',
+                                   mutation_scale=15,
+                                   connectionstyle='arc3,rad=0.0',
+                                   color='black',
+                                   linewidth=1.5,
+                                   shrink_pts=13.2):
+            """
+            Draw each edge (u,v) in edgelist as a FancyArrowPatch that stops
+            `shrink_pts` away from each node center.
+            """
+            for u, v in edgelist:
+                xyA = pos[u]
+                xyB = pos[v]
+                patch = FancyArrowPatch(xyA, xyB,
+                                        arrowstyle=arrowstyle,
+                                        mutation_scale=mutation_scale,
+                                        connectionstyle=connectionstyle,
+                                        color=color,
+                                        linewidth=linewidth,
+                                        shrinkA=shrink_pts,
+                                        shrinkB=shrink_pts)
+                ax.add_patch(patch)
+
+        def draw_self_loop_edges(ax, pos, edgelist,
+                                 arrowstyle='->',
+                                 mutation_scale=15,
+                                 color='black',
+                                 linewidth=1.5,
+                                 shrink_pts=13.2,
+                                 rad=2):
+            # grab the extents of your layout
+            xs = [p[0] for p in pos.values()]
+            ys = [p[1] for p in pos.values()]
+            xmin, xmax, ymin, ymax = min(xs), max(xs), min(ys), max(ys)
+            offset_x = 0.4
+            offset_y = 0.8
+            for u, v in edgelist:
+                x, y = pos[u]
+                # decide which side this node lives on:
+                if abs(y - ymin) < 1e-6:  # bottom row
+                    sign = 1
+                    dx = offset_x
+                    dy = 0
+                elif abs(y - ymax) < 1e-6:  # top row
+                    sign = -1
+                    dx = offset_x
+                    dy = 0
+                elif abs(x - xmin) < 1e-6:  # left column (center‑left)
+                    sign = -1
+                    dx = 0
+                    dy = offset_y
+                else:  # right column (center‑right)
+                    sign = 1
+                    dx = 0
+                    dy = offset_y
+                loop = FancyArrowPatch(
+                    (x - dx, y - dy), (x + dx, y + dy),
+                    connectionstyle=f"arc3,rad={sign * rad}",
+                    color=color,
+                    shrinkA=shrink_pts,
+                    shrinkB=shrink_pts,
+                    mutation_scale=mutation_scale,
+                    linewidth=linewidth,
+                    arrowstyle=arrowstyle
+                )
+                ax.add_patch(loop)
+
+        # ----------------------------
+        # Segment 1: Input Graph (no node fill, outlined only)
+        # ----------------------------
+        ax_input = fig.add_subplot(gs[0, 0])
+        G_input = nx.Graph()
+        G_input.add_nodes_from(range(n_nodes))
+        for i in range(n_nodes - 1):
+            G_input.add_edge(i, i + 1)
+        G_input.add_edge(0, n_nodes - 1)
+
+        # Labels: (x^1, y^1), (x^2, y^2), ...
+        labels_input = {i: r"$[\textbf x^{{{0}}}, \textbf y^{{{0}}}]$".format(i + 1) for i in range(n_nodes)}
+
+        # 1) Draw the nodes:
+        nx.draw_networkx_nodes(
+            G_input, pos,
+            node_color='none',
+            edgecolors='black',
+            node_size=node_size,
+            ax=ax_input
+        )
+        # Draw nodes with no fill (node_color='none') and black outlines using edgecolors.
+        draw_edges_with_shrink(ax_input, pos, list(G_input.edges()),
+                               color='gray',
+                               arrowstyle='-',
+                               linewidth=2.,
+                               mutation_scale=1,
+                               shrink_pts=node_radius_pt)
+        draw_offset_labels(ax_input, pos, labels_input, offset_x=0.4, offset_y=-0.4, fontsize=26)
+        ax_input.set_title("Input Feature Channels", fontsize=28)
+        ax_input.axis('off')
+
+        # ----------------------------
+        # Segment 2: Convolutional Layers (Directed Graph)
+        # ----------------------------
+        # Build directed graph with edges from predecessor, successor, and self-loop.
+        G_conv = nx.DiGraph()
+        G_conv.add_nodes_from(range(n_nodes))
+        for i in range(n_nodes):
+            pred = (i - 1) % n_nodes
+            succ = (i + 1) % n_nodes
+            G_conv.add_edge(pred, i)
+            G_conv.add_edge(succ, i)
+            G_conv.add_edge(i, i)  # Self-loop
+
+        # labels_conv = {i: r"$(x^{{{0}}}, y^{{{0}}})$".format(i+1) for i in range(n_nodes)}
+
+        # Create a subgrid for the middle segment with 3 rows:
+        # Row 1: Green filter panel, Row 2: Blue filter panel, Row 3: Text panel (dots and Conv1D title)
+        conv_gs = GridSpecFromSubplotSpec(3, 1, subplot_spec=gs[0, 1], hspace=0.3)
+
+        # Define arrow styles for the panels.
+        arrow_kwargs = {
+            'arrowstyle': '->',
+            'mutation_scale': 15,
+            'linewidth': 2,
+            'shrink_pts': node_radius_pt
+        }
+
+        # Separate non-self-loop edges and self-loop edges.
+        non_self_edges = [e for e in G_conv.edges() if e[0] != e[1]]
+        # self_edges = list(nx.selfloop_edges(G_conv))
+        self_edges = [(i, i) for i in range(n_nodes)]
+
+        # ---- Row 1: Green Filter Panel ----
+        ax_conv_green = fig.add_subplot(conv_gs[0, 0])
+        nx.draw_networkx_nodes(G_conv, pos, node_color='none', edgecolors='black', node_size=node_size,
+                               ax=ax_conv_green)
+        draw_edges_with_shrink(ax_conv_green, pos, non_self_edges, connectionstyle='arc3,rad=0.2', color='lime',
+                               **arrow_kwargs)
+        draw_self_loop_edges(ax_conv_green, pos, self_edges, color='lime', rad=2., **arrow_kwargs)
+        # draw_offset_labels(ax_conv_green, pos, labels_conv, offset_x = 0.4, offset_y = 1.3, fontsize=12)
+        ax_conv_green.axis('off')
+
+        # ---- Row 2: Blue Filter Panel ----
+        ax_conv_blue = fig.add_subplot(conv_gs[1, 0])
+        nx.draw_networkx_nodes(G_conv, pos, node_color='none', edgecolors='black', node_size=node_size, ax=ax_conv_blue)
+        draw_edges_with_shrink(ax_conv_blue, pos, non_self_edges, connectionstyle='arc3,rad=0.2', color='dodgerblue',
+                               **arrow_kwargs)
+        draw_self_loop_edges(ax_conv_blue, pos, self_edges, color='dodgerblue', rad=2., **arrow_kwargs)
+        # draw_offset_labels(ax_conv_blue, pos, labels_conv, fontsize=12)
+        ax_conv_blue.axis('off')
+
+        # ---- Row 3: Text Panel: Large dots and Conv1D Title ----
+        ax_conv_text = fig.add_subplot(conv_gs[2, 0])
+        ax_conv_text.axis('off')
+        conv_text = r"\Huge{$\ldots$}" + '\n \n' + r"\Huge{Conv1d: 3, circular padding}"
+        ax_conv_text.text(0.5, 0.5, conv_text, ha='center', va='bottom', fontsize=30)
+
+        # ----------------------------
+        # Segment 3: Output Graph (Feature Channels, no node fill)
+        # ----------------------------
+        ax_output = fig.add_subplot(gs[0, 2])
+        G_output = nx.Graph()
+        G_output.add_nodes_from(range(n_nodes))
+        for i in range(n_nodes - 1):
+            G_output.add_edge(i, i + 1)
+        G_output.add_edge(0, n_nodes - 1)
+
+        # Output labels: feature activations (with brackets),
+        # first channel in lime, second in dodgerblue.
+        labels_output = {}
+        for i in range(n_nodes):
+            labels_output[i] = (
+                r"$[\textcolor{{cadmiumgreen}}{{\Huge \textbf h^{{{0}}}_1}}, \textcolor{{blue}}{{\Huge \textbf h^{{{0}}}_2}}, \dots]$".format(
+                    i + 1)
+            )
+
+        # Draw nodes with no fill.
+        nx.draw_networkx_nodes(G_output, pos, node_color='none', edgecolors='black', node_size=node_size, ax=ax_output)
+        draw_edges_with_shrink(ax_output, pos, list(G_output.edges()),
+                               color='gray',
+                               arrowstyle='-',
+                               mutation_scale=1,
+                               linewidth=1.5,
+                               shrink_pts=node_radius_pt)
+        draw_offset_labels(ax_output, pos, labels_output, offset_x=-0.4, offset_y=-0.5, fontsize=30)
+        ax_output.set_title("Output Feature Channels", fontsize=28)
+        ax_output.axis('off')
+
+        # ----------------------------
+        # Figure-Level Arrows Between Segments (Corrected Direction)
+        # ----------------------------
+        ax_ann = fig.add_axes([0, 0, 1, 1], zorder=-1)
+        ax_ann.set_axis_off()
+
+        # Arrow from Input to Middle:
+        # Tail at Input right border and head at Middle (Conv text panel) left border.
+        ax_ann.annotate("",
+                        xy=(0.40, 0.5),  # head: near left side of middle segment
+                        xytext=(0.37, 0.5),  # tail: near right side of Input segment
+                        xycoords='figure fraction',
+                        arrowprops=dict(arrowstyle="->", lw=4, color='black'))
+        # Arrow from Middle to Output:
+        # Tail at Middle right border and head at Output left border.
+        ax_ann.annotate("",
+                        xy=(0.66, 0.5),  # head: near left side of Output segment
+                        xytext=(0.63, 0.5),  # tail: near right side of Middle segment
+                        xycoords='figure fraction',
+                        arrowprops=dict(arrowstyle="->", lw=4, color='black'))
+        if not os.path.exists('plots'):
+            os.makedirs('plots')
+        fig.savefig("plots/message_passing.eps")
+        plt.show()

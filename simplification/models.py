@@ -206,7 +206,6 @@ class BuildingSimplificationModel(nn.Module):
             self.encoder_blocks.append(nn.ModuleList(blocks_level))
 
         self.decoder_blocks = nn.ModuleList()
-        #self.decoder_norms = nn.ModuleList()
         self.upsamples = nn.ModuleList()
 
         #Decoder
@@ -245,7 +244,6 @@ class BuildingSimplificationModel(nn.Module):
                                                    dropout=task_dropout, head_type=head_type)
         self.reg_head = self._initialise_task_head(num_reg_layers, reg_input_dim, out_dim, num_targets=2, dropout=task_dropout,
                                                    head_type=head_type)
-        #self.loss_weights = torch.nn.Parameter(torch.tensor([1., np.sqrt(3.25), np.sqrt(2.71)]))
         self.loss_weights = torch.nn.Parameter(torch.ones(3))
 
     def _initialise_task_head(self, num_layers, in_channels, out_channels, num_targets, dropout, head_type='mlp'):
@@ -280,7 +278,6 @@ class BuildingSimplificationModel(nn.Module):
         skip_connections.append(x)
         input_dims.append(x.shape[-1])
 
-        #x = local_embeddings
         for idx, (blocks,downsample) in enumerate(zip(self.encoder_blocks,self.downsamples)):
             level = idx+1
             if self.downsample == 'maxpool':
@@ -300,7 +297,6 @@ class BuildingSimplificationModel(nn.Module):
             target_size = input_dims[level]
             upsample.size=target_size
             x = upsample(x)
-            #x = torch.cat([coords_proj, x, skip_connections[skip_idx]], dim=1)
             x = torch.cat([x, skip_connections[level]], dim=1)
             for block in blocks:
                 coords = coord_list[level] if self.coords_pathway else None
