@@ -190,9 +190,9 @@ if __name__ == '__main__':
     data_dir = 'data/TriangleFeatures'
 
     if args.model == 'gnn':
-        train_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'train', device = device, **config['data'])
-        val_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'valid', device = device, **config['data'])
-        test_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'test', device = device, **config['data'])
+        train_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'train', **config['data'])
+        val_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'valid', **config['data'])
+        test_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'test', **config['data'])
         train_loader = GraphLoader(train_set, batch_size, shuffle=True)
         val_loader = GraphLoader(val_set,batch_size=1, shuffle=False)
         test_loader = GraphLoader(test_set,batch_size=1, shuffle=False)
@@ -200,9 +200,9 @@ if __name__ == '__main__':
         out_channels = int(train_set.get_data_output_dim())
         model = GraphTriangleEncoder(in_channels,out_channels,**config['model']).to(device)
     else:
-        train_set = TriangleFeatureDataset(data_dir=data_dir, split='train', device = device, **config['data'])
-        val_set = TriangleFeatureDataset(data_dir=data_dir, split='valid', device = device, **config['data'])
-        test_set = TriangleFeatureDataset(data_dir=data_dir, split='test', device = device, **config['data'])
+        train_set = TriangleFeatureDataset(data_dir=data_dir, split='train', **config['data'])
+        val_set = TriangleFeatureDataset(data_dir=data_dir, split='valid', **config['data'])
+        test_set = TriangleFeatureDataset(data_dir=data_dir, split='test', **config['data'])
         train_loader = DataLoader(train_set, batch_size, shuffle=True)
         val_loader = DataLoader(val_set, batch_size=1, shuffle=False)
         test_loader = DataLoader(test_set, batch_size=1, shuffle=False)

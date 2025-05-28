@@ -3,11 +3,13 @@ from torch.functional import F
 import numpy as np
 
 def swap_channels(tensor: torch.tensor) -> torch.tensor:
-
+    """
+    Swaps the last two dimensions of a tensor
+    """
     if tensor.ndim < 2:
         raise ValueError("Tensor must have at least two dimensions to swap the last two.")
 
-        # Generate a permutation order for the dimensions
+    # Generate a permutation order for the dimensions
     perm_order = list(range(tensor.ndim - 2)) + [tensor.ndim - 1, tensor.ndim - 2]
 
     # Permute the tensor
@@ -118,7 +120,7 @@ def polygon_min_max_std(polygons):
 
     return std_dev
 
-def normalize(tensor, std = 17.551151):
+def normalize(tensor, std):
     assert tensor.shape[-1] == 2, 'Assumes xy coords are in last dimension'
     assert tensor.ndim == 2, f'Assumes no batch dimension. Tensor has {tensor.ndim} dimensions.'
     return (tensor - tensor.mean(dim=0))/std

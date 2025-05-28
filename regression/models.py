@@ -5,6 +5,7 @@ from src.utils import get_activation, get_norm_layer
 class UNetTriangleModelRegression(nn.Module):
     def __init__(self, triangle_embed_params,
                  block_params,
+                 in_channels = 2,
                  num_classes = 7,
                  norm='batch',
                  block = 'TriangleFeatureBlock',
@@ -28,7 +29,7 @@ class UNetTriangleModelRegression(nn.Module):
         self.downsample = downsample
         self.blocks_per_layer = blocks_per_layer if isinstance(blocks_per_layer, list) else [blocks_per_layer for _ in range(self.num_layers)]
 
-        input_channels = 8 if self.use_diff_encoder else 2
+        input_channels = 4*in_channels if self.use_diff_encoder else in_channels
         self.d_pos = input_channels
         has_bias = (norm == None)
 

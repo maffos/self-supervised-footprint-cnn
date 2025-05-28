@@ -14,19 +14,14 @@ class TriangleFeatureDataset(Dataset):
 
     def __init__(self, data_dir: str,
                  split: str,
-                 device: torch.device,
-                 load_raw_coords = False,
                  transform: list = None,
-                 target_transform: list = None,
                  bucketize: bool = False,
                  batch_size: int = 64):
         """
         Initializes the dataset with the given parameters.
         :param data_dir: Directory where data files are located.
         :param split: The dataset split to load ('train', 'valid', 'test').
-        :param load_raw_coords: Whether to load raw features directly (True) or processed features (False).
         :param transform: A list of transformations to apply to the input data. Default is None.
-        :param target_transform: A list of transformations to apply to the target labels. Default is None.
         :param bucketize: Whether to bucketize the data by size for more efficient batching. Default is False.
         :param batch_size: The batch size for training or inference. Only required when bucketize is set to True. Default is 64.
         """
@@ -37,13 +32,10 @@ class TriangleFeatureDataset(Dataset):
         # Set default data_dir to the 'data/' folder in the root directory
         self.data_dir = os.path.join(root_dir, data_dir) if data_dir else os.path.join(root_dir, "data")
         self.split = split
-        self.device = device
         self.transform = self._initialize_transforms(transform)
-        self.target_transform = self._initialize_transforms(target_transform)
-        self.spatial_dim = -1 if target_transform is not None and 'swap_channels' in target_transform else -2
+        self.spatial_dim = -2
 
-        # Data files corresponding to each split
-        feature_fname = f'x_{split}.bin' if load_raw_coords else f'xFully_{split}.bin'
+        feature_fname = f'x_{split}.bin'
 
         self.data_files = {
             'x': feature_fname,
@@ -71,22 +63,14 @@ class TriangleFeatureDataset(Dataset):
         return len(self.data['x'])
 
     def __getitem__(self, idx):
-        # Retrieve the x, y, and adj_matrix for the specified index
-        x = self.data['x'][idx]
-        y = self.data['y'][idx]
 
-        # Convert to torch tensors if needed
-        x_tensor = torch.tensor(x, dtype=torch.float32)
-        y_tensor = torch.tensor(y, dtype=torch.float32)
+        x = torch.tensor(self.data['x'][idx], dtype=torch.float32)
+        y = torch.tensor(self.data['y'][idx], dtype=torch.float32)
 
-        x_tensor_transformed = copy.deepcopy(x_tensor)
-        y_tensor_transformed = copy.deepcopy(y_tensor)
         if self.transform:
-            x_tensor_transformed = self.apply_transforms(x_tensor_transformed,self.transform)
-        if self.target_transform:
-            y_tensor_transformed = self.apply_transforms(y_tensor_transformed,self.target_transform, x_tensor)
+            x = self.apply_transforms(x,self.transform)
 
-        return {'x':x_tensor_transformed.to(self.device), 'y':y_tensor_transformed.to(self.device)}
+        return {'x':x, 'y':y}
 
     def _get_max_extent(self, key):
         max_extent = 0
@@ -113,7 +97,7 @@ class TriangleFeatureDataset(Dataset):
         transform_map = {
             'swap_channels': swap_channels,
             'zero_padding': zero_padding,
-            'normalize': normalize,
+            'normalize': normalize
         }
         transform_list = []
         for trans in transforms:
@@ -171,15 +155,9 @@ class TriangleFeatureDataset(Dataset):
         return matrices
 
     def get_data_feature_dim(self):
-        """
-        Get the feature dimension of the x data.
-        """
         return self._get_matrix_column_size(os.path.join(self.data_dir, self.data_files['x']))
 
     def get_data_output_dim(self):
-        """
-        Get the output dimension of the y data.
-        """
         return self._get_matrix_column_size(os.path.join(self.data_dir, self.data_files['y']))
 
     def bucketize_and_batch(self, batch_size):
@@ -213,7 +191,7 @@ class TriangleFeatureDataset(Dataset):
 
         return batches
 
-    def apply_transforms(self, sample, transforms, *args):
+    def apply_transforms(self, sample, transforms):
         for transform in transforms:
             if transform == zero_padding:
                 target_shape = []
@@ -222,22 +200,12 @@ class TriangleFeatureDataset(Dataset):
                 target_shape[-2] = self.max_extent
                 sample = transform(sample, target_shape)
             elif transform == normalize:
-                std = self.std()
+                std = self.footprint_std()
                 sample = transform(sample,std)
             else:
-                sample = transform(sample, *args)
+                sample = transform(sample)
 
         return sample
-
-    def get_data_loader(self, batch_size):
-
-        if self._is_valid_dataloader(batch_size):
-            return DataLoader(self, batch_size=batch_size, shuffle=True, drop_last=True)
-        else:
-            raise ValueError('DataLoader is not valid.')
-
-    def _is_valid_dataloader(self, batch_size):
-        return zero_padding in self.transform or self.bucketize or batch_size == 1
 
     def target_statistics(self):
         y = self.data['y']
@@ -519,7 +487,7 @@ class BuildingSimplificationDataset(Dataset):
         y = torch.from_numpy(y).to(torch.float32)
         for transform in self.transforms or []:
             if transform == normalize:
-                std = self.std()
+                std = self.footprint_std()
                 x = transform(x, std)
             else:
                 x = transform(x)
