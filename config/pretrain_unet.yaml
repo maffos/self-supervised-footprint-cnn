@@ -1,0 +1,45 @@
+data:
+  transform: [swap_channels]
+  target_transform: [swap_channels]
+  bucketize: False
+  load_raw_coords: True
+  batch_size: 1
+device: cuda
+model:
+  block_params:
+    activation: relu
+    norm: group
+    mlp_norm: group
+    dropout: 0.2
+    residual_connection: True
+    bottleneck: True
+    conv_type: 'standard'
+    append_coords: True
+    project_coords: False
+  norm: 'group'
+  initial_num_groups: 16
+  use_diff_encoder: False
+  block: TriangleFeatureBlock
+  blocks_per_layer: 2
+  num_layers: 2
+  downsample: 'conv'
+  triangle_embed_params:
+    hidden_dims:
+    - 256
+    - 256
+    - 256
+    activation: relu
+    norm: null
+    mlp_norm: null
+    num_groups: null
+    dropout: null
+    out_channels: 256
+    conv_type: 'standard'
+model_name: unet_pretrained
+tag: regression
+loss_fn: ScaledMAE
+training:
+  lr: 1.0e-4
+  lr_min: 1.0e-06
+  num_epochs: 300
+  weight_decay: 1.0e-06

@@ -1,4 +1,5 @@
 from torch import nn
+import torch
 from src.models import TriangleConv, TriangleFeatureExtractor, TriangleFeatureBlock
 from src.utils import get_activation, get_norm_layer
 
@@ -8,7 +9,6 @@ class UNetTriangleModelRegression(nn.Module):
                  in_channels = 2,
                  num_classes = 7,
                  norm='batch',
-                 block = 'TriangleFeatureBlock',
                  initial_num_groups=None,
                  hidden_dims=None,
                  activation='relu',
@@ -52,10 +52,7 @@ class UNetTriangleModelRegression(nn.Module):
             self.coords_pathway = None
 
         #Encoder
-        if block in ['TriangleFeatureBlock','resnet']:
-            self.triangle_embedding = TriangleFeatureExtractor(in_channels=self.d_pos, **triangle_embed_params)
-        elif block == 'LinearProjection':
-            self.triangle_embedding= TriangleFeatureExtractor(in_channels=self.d_pos, **triangle_embed_params)
+        self.triangle_embedding = TriangleFeatureExtractor(in_channels=self.d_pos, **triangle_embed_params)
         self.norm_embed = get_norm_layer(triangle_embed_params['norm'], self.d_model_triangle)
 
         self.encoder_blocks = nn.ModuleList()
@@ -171,16 +168,44 @@ class UNetTriangleModelRegression(nn.Module):
         input_dims = []
         coords = self.diff_encoder(x) if self.use_diff_encoder else x
         coord_list = [coords]
-        for coords_down,pool in zip(self.coords_pathway,self.coord_pooling_layers) or []:
+        for coords_down, pool in zip(self.coords_pathway, self.coord_pooling_layers) or []:
             if pool is not None:
-                pool.output_size = coords.shape[-1]//2
+                pool.output_size = coords.shape[-1] // 2
             coords = pool(coords_down(coords))
             coord_list.append(coords)
 
-        #Encoder
+        # Encoder
         x = self.activation(self.norm_embed(self.triangle_embedding(coord_list[0])))
         skip_connections = []
         for block in self.encoder_blocks_layer1:
-            x = block(x,coord_list[0])
+            x = block(x, coord_list[0])
         skip_connections.append(x)
         input_dims.append(x.shape[-1])
+
+        # x = local_embeddings
+        for idx, (blocks, downsample) in enumerate(zip(self.encoder_blocks, self.downsamples)):
+            level = idx + 1
+            if self.downsample == 'maxpool':
+                downsample.output_size = x.shape[-1] // 2
+            x = downsample(x)
+            for block in blocks:
+                coords = coord_list[level] if self.coords_pathway else None
+                assert x.shape[-1] == coords.shape[-1], f'level: {level}, {x.shape}, {coords.shape}'
+                x = block(x, coords)
+            if level < self.num_layers - 1:
+                skip_connections.append(x)
+                input_dims.append(x.shape[-1])
+
+        # Decoder
+        for i, (blocks, upsample) in enumerate(zip(self.decoder_blocks, self.upsamples)):
+            level = self.num_layers - i - 2
+            target_size = input_dims[level]
+            upsample.size = target_size
+            x = upsample(x)
+            x = torch.cat([x, skip_connections[level]], dim=1)
+            for block in blocks:
+                coords = coord_list[level] if self.coords_pathway else None
+                x = block(x, coords)
+
+        x = self.out_layer(x)
+        return x

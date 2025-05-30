@@ -1,0 +1,53 @@
+data:
+  batch_size: 64
+  bucketize: false
+  edge_attr_type: pseudo_coords
+  edge_attr_params:
+      method: 'midpoint'
+  target_transform:
+  - zero_out_no_move
+  transforms: []
+device: cuda
+model:
+  block_params:
+    activation: relu
+    dropout: 0.2
+    graph_operator: spline_conv
+    conv_params:
+      kernel_size: 3
+      dim: 2
+    mlp_norm: graph
+    norm: graph
+  hidden_dims:
+  - 512
+  - 1024
+  - 512
+  multiply_labels: true
+  num_cls_layers: 2
+  num_reg_layers: 2
+  out_dim: 64
+  task_dropout: 0.2
+  triangle_embed_params:
+    activation: relu
+    dropout: 0.2
+    graph_operator: spline_conv
+    conv_params:
+      kernel_size: 3
+      dim: 2
+    hidden_dims:
+    - 256
+    - 256
+    - 256
+    mlp_norm: null
+    norm: null
+    num_groups: 0
+    out_channels: 256
+model_name: gnn_spline_conv
+tag: BuildingSimplification
+training:
+  loss_fn_cls: WeightedCrossEntropy
+  loss_fn_reg: ClassWeightedMAE
+  lr: 0.001
+  lr_min: 1.0e-05
+  num_epochs: 500
+  weight_decay: 1.0e-06

@@ -36,7 +36,7 @@ def zero_out_no_move(y):
 
 def compute_distance_weights(x,edge_index):
 
-    src, tgt = edge_index  # (2, num_edges)
+    src, tgt = edge_index
     edge_weight = 1/torch.norm(x[src] - x[tgt], p=2, dim=1)
     return edge_weight
 
@@ -50,31 +50,6 @@ def compute_pseudo_coords(x,edge_index, x_min,x_max, method = 'midpoint', clamp_
         raise NotImplementedError("Unknown method {}".format(method))
     pseudo_coordinates = torch.clamp(pseudo_coordinates, 0, 1) if clamp_outliers else pseudo_coordinates
     return pseudo_coordinates
-
-def get_edge_coords(x,edge_index):
-
-    prev_x = torch.roll(x, shifts=1, dims=-1)
-    out = torch.cat([x,prev_x], dim=-2)
-    return out
-
-def get_edge_coords_self_loop(x,edge_index):
-    prev_x = torch.roll(x, shifts=1, dims=-1)
-    out = torch.cat([x, prev_x], dim=-2)
-    self_loop = torch.cat([x,x], dim=-2)
-    out = torch.cat([out,self_loop], dim=-1)
-    return out
-
-def get_edge_diffs(x,edge_index):
-    prev_x = torch.roll(x, shifts=1, dims=-1)
-    out = torch.cat([x-prev_x, x-x], dim=-1)
-    return  out
-
-def get_edge_coords_with_diffs(x,edge_index):
-    prev_x = torch.roll(x, shifts=1, dims=-1)
-    out = torch.cat([x,prev_x,x-prev_x], dim=-2)
-    self_loop = torch.cat([x,x, x-x], dim=-2)
-    out = torch.cat([out,self_loop], dim=-1)
-    return out
 
 def create_polygon_edge_index(num_vertices):
     source_nodes = []

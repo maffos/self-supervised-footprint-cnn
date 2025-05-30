@@ -1,0 +1,54 @@
+data:
+  transforms: [swap_channels]
+  target_transform: [zero_out_no_move]
+  batch_size: 1
+  bucketize: False
+device: cuda
+model:
+  block_params:
+    activation: relu
+    norm: group
+    mlp_norm: group
+    dropout: 0.2
+    residual_connection: True
+    bottleneck: True
+    conv_type: 'standard'
+    append_coords: True
+    project_coords: False
+  num_cls_layers: 2
+  num_reg_layers: 2
+  out_dim: 1024
+  multiply_labels: True
+  task_dropout: 0.2
+  norm: 'group'
+  initial_num_groups: 16
+  use_diff_encoder: False
+  concat_class_probs: True
+  head_type: 'mlp'
+  blocks_per_layer: 2
+  num_layers: 2
+  downsample: 'conv'
+  triangle_embed_params:
+    hidden_dims:
+    - 256
+    - 256
+    - 256
+    - 256
+    activation: relu
+    swap_channels: False
+    norm: null
+    mlp_norm: null
+    num_groups: null
+    dropout: null
+    out_channels: 256
+    conv_type: 'standard'
+model_name: Unet_model_pretrained
+tag: BuildingSimplification
+pretrained_weights_fname: trained_models/regression/unet_pretrained/best_model.pkl
+training:
+  loss_fn_cls: WeightedCrossEntropy
+  loss_fn_reg: ClassWeightedMAE
+  lr: 1.0e-4
+  lr_min: 1.0e-06
+  num_epochs: 500
+  weight_decay: 1.0e-06

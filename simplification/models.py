@@ -98,7 +98,6 @@ class BuildingSimplificationModel(nn.Module):
                  blocks_per_layer=[1, 1, 1],
                  downsample = 'conv',
                  multiply_labels = False,
-                 concat_local_features = False,
                  concat_class_probs = False,
                  ):
         super(BuildingSimplificationModel, self).__init__()
@@ -113,7 +112,6 @@ class BuildingSimplificationModel(nn.Module):
         self.downsample = downsample
         self.blocks_per_layer = blocks_per_layer if isinstance(blocks_per_layer, list) else [blocks_per_layer for _ in range(self.num_layers)]
         self.multiply_labels = multiply_labels
-        self.concat_local_features = concat_local_features
         self.dropout = nn.Dropout(task_dropout)
         self.concat_class_probs = concat_class_probs
         self.softmax = nn.Softmax(dim=1)
@@ -238,7 +236,7 @@ class BuildingSimplificationModel(nn.Module):
             self.decoder_blocks.append(nn.ModuleList(blocks_level))
 
         # Task Heads
-        cls_input_dim = self.hidden_dims[0]*2 if self.concat_local_features else self.hidden_dims[0]
+        cls_input_dim = self.hidden_dims[0]
         reg_input_dim = cls_input_dim + num_classes if self.concat_class_probs else cls_input_dim
         self.cls_head = self._initialise_task_head(num_cls_layers, cls_input_dim, out_dim, num_classes,
                                                    dropout=task_dropout, head_type=head_type)
@@ -303,11 +301,11 @@ class BuildingSimplificationModel(nn.Module):
                 x = block(x,coords)
 
 
-        task_input = torch.cat([x, skip_connections[0]], dim=1) if self.concat_local_features else x
+        task_input = x
         cls_out = self.cls_head(task_input)
         if self.concat_class_probs:
             probs = self.softmax(cls_out)
-            task_input = torch.cat([task_input, probs], dim=1)
+            task_input = torch.cat([x, probs], dim=1)
         reg_out = self.reg_head(task_input)
 
         if self.multiply_labels:

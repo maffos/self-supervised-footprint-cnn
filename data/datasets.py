@@ -5,9 +5,11 @@ from torch_geometric.data import Data as GraphData
 import os
 import geopandas as gpd
 import pandas as pd
+import numpy as np
 import copy
 from collections import defaultdict
-from data.utils import *
+from data.utils import swap_channels,zero_padding,zero_out_no_move,normalize,polygon_min_max_std, create_polygon_edge_index,\
+    compute_distance_weights, polygons_to_arrays, delete_last_vertices, compute_pseudo_coords
 from classification.DPCN.new_pre import get_shape_mbr, get_shape_normalize_final, get_shape_simplify, get_node_features, reset_start_point, get_inter_features, get_neat_features, get_line_features_final
 
 class TriangleFeatureDataset(Dataset):
@@ -451,6 +453,9 @@ class ClassificationDataset(Dataset):
         polygon_min_max_std(self.point_cloud)
 
 class BuildingSimplificationDataset(Dataset):
+    """
+    Loads the Dataset from Zhou et al.(2023)
+    """
     def __init__(self, data_dir, split, transforms=None, bucketize = False, target_transform = None, batch_size = 1):
         super(BuildingSimplificationDataset, self).__init__()
         data = np.load('{}/vertex_{}.npy'.format(data_dir, split), allow_pickle=True)
@@ -556,11 +561,7 @@ class BuildingSimplificationGraphDataset(BuildingSimplificationDataset):
 
         edge_attr_types = {'distance_weights': compute_distance_weights,
                            'pseudo_coords': compute_pseudo_coords,
-                           'ones': lambda x, y: torch.ones(y.shape[1]),
-                           'coords': get_edge_coords,
-                           'coords_self_loops': get_edge_coords_self_loop,
-                           'diffs': get_edge_diffs,
-                           'coords_diffs': get_edge_coords_with_diffs}
+                           'ones': lambda x, y: torch.ones(y.shape[1])}
         return edge_attr_types.get(edge_attr_type, None)
 
     def __getitem__(self, idx):

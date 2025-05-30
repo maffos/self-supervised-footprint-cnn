@@ -1,0 +1,37 @@
+tag: "classification"
+model_name: 'vanilla_cnn_5blocks'
+data:
+  raw_coordinates: False
+  no_val_set: True
+  transforms: [swap_channels]
+batch_size: 32
+device: 'cuda'
+training:
+  lr: 1.e-3
+  lr_min: 1.e-5
+  num_epochs: 150
+  weight_decay: 1.0e-6
+model:
+  blocks_per_layer: [2,2]
+  downsample: null
+  hidden_dims: [256,512,1024]
+  triangle_embed_params:
+    activation: 'relu'
+    dropout: null
+    out_channels: 256
+    hidden_dims: [256,256,256,256]
+    norm: null
+    mlp_norm: null
+    num_groups: null
+    conv_type: 'standard'
+  block_params:
+    activation: 'relu'
+    conv_type: 'standard'
+    norm: 'batch'
+    mlp_norm: 'batch'
+    dropout: null
+    residual_connection: False
+    bottleneck: False
+    append_coords: False
+    project_coords: False
+

@@ -9,7 +9,6 @@ class BuildingClassificationModel(nn.Module):
                  num_classes=10,
                  in_channels=2,
                  blocks_per_layer = [1,1],
-                 block='TriangleFeatureBlock',
                  hidden_dims=None,
                  downsample = None
                  ):

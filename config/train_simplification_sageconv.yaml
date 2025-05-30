@@ -1,0 +1,51 @@
+data:
+  batch_size: 64
+  bucketize: false
+  edge_attr_type: distance_weights
+  target_transform:
+  - zero_out_no_move
+  transforms: []
+device: cuda
+model:
+  block_params:
+    activation: relu
+    conv_params:
+      aggr: max
+      project: true
+    dropout: 0.2
+    graph_operator: sage_conv
+    mlp_norm: graph
+    norm: graph
+  hidden_dims:
+  - 128
+  - 64
+  - 32
+  multiply_labels: true
+  num_cls_layers: 2
+  num_reg_layers: 2
+  out_dim: 256
+  task_dropout: 0.2
+  triangle_embed_params:
+    activation: relu
+    conv_params:
+      aggr: max
+      project: true
+    dropout: 0.2
+    graph_operator: sage_conv
+    hidden_dims:
+    - 256
+    - 256
+    - 256
+    mlp_norm: null
+    norm: null
+    num_groups: 0
+    out_channels: 256
+model_name: gnn_sage_conv
+tag: BuildingSimplification
+training:
+  loss_fn_cls: WeightedCrossEntropy
+  loss_fn_reg: ClassWeightedMAE
+  lr: 0.001
+  lr_min: 1.0e-05
+  num_epochs: 500
+  weight_decay: 1.0e-06
