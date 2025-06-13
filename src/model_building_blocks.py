@@ -1,4 +1,4 @@
-from utils import get_activation,get_graph_conv_layer,get_graph_norm_layer,get_norm_layer
+from .utils import get_activation,get_graph_conv_layer,get_graph_norm_layer,get_norm_layer
 from torch import nn
 import torch
 from torch_geometric.nn import MessagePassing

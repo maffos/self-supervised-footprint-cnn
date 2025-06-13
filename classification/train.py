@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 from sklearn.metrics import precision_score, recall_score, f1_score
 from tqdm import tqdm
-from models import BuildingClassificationModel
+from .models import BuildingClassificationModel
 
 
 def train(model,

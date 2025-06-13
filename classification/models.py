@@ -1,4 +1,4 @@
-from src.models import TriangleFeatureBlock, TriangleFeatureExtractor
+from src.model_building_blocks import TriangleFeatureBlock, TriangleFeatureExtractor
 from src.utils import get_norm_layer,get_activation
 from torch import nn
 

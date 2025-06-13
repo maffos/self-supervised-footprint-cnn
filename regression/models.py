@@ -1,6 +1,6 @@
 from torch import nn
 import torch
-from src.models import TriangleConv, TriangleFeatureExtractor, TriangleFeatureBlock
+from src.model_building_blocks import TriangleConv, TriangleFeatureExtractor, TriangleFeatureBlock
 from src.utils import get_activation, get_norm_layer
 
 class UNetTriangleModelRegression(nn.Module):

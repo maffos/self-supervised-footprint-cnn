@@ -3,16 +3,15 @@ import os
 import yaml
 import argparse
 import torch
-from torch_geometric.loader import DataLoader as GraphLoader
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 from tqdm import tqdm
-from data.datasets import TriangleFeatureDataset, TriangleFeatureGraphDataset
-from src.models import GraphTriangleEncoder, TriangleFeatureExtractor
-from models import UNetTriangleModelRegression
+from data.datasets import TriangleFeatureDataset
+from src.model_building_blocks import TriangleFeatureExtractor
+from .models import UNetTriangleModelRegression
 from src.utils import save_checkpoint, setup_directories, save_config,initialize, save_results_to_csv
-from utils import get_loss_fn
+from .utils import get_loss_fn
 
 def train(model,
           train_loader,
@@ -169,17 +168,15 @@ if __name__ == '__main__':
     random_state = 4
     torch.manual_seed(random_state)
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["cnn", "gnn", "cnn-linear", "unet"], default='unet', help="Model type")
+    parser.add_argument("--model", choices=["cnn", "unet"], default='unet', help="Model type")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-    if args.model in ['cnn', 'cnn-linear']:
-        config_file = 'config/train_triangle_regression.yaml'
+    if args.model == 'cnn':
+        config_file = 'config/train_regression.yaml'
     elif args.model == 'unet':
-        config_file = 'config/train_triangle_regression_unet.yaml'
-    else:
-        config_file = 'config/train_triangle_regression_graph.yaml'
+        config_file = 'config/pretrain_unet.yaml'
     with open(config_file, "r") as file:
         config = yaml.safe_load(file)
 
@@ -189,31 +186,22 @@ if __name__ == '__main__':
     batch_size = 1 if config['data'].get('bucketize', False) else config['data']['batch_size']
     data_dir = 'data/TriangleFeatures'
 
-    if args.model == 'gnn':
-        train_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'train', **config['data'])
-        val_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'valid', **config['data'])
-        test_set = TriangleFeatureGraphDataset(data_dir = data_dir, split = 'test', **config['data'])
-        train_loader = GraphLoader(train_set, batch_size, shuffle=True)
-        val_loader = GraphLoader(val_set,batch_size=1, shuffle=False)
-        test_loader = GraphLoader(test_set,batch_size=1, shuffle=False)
-        in_channels = int(train_set.get_data_feature_dim())
-        out_channels = int(train_set.get_data_output_dim())
-        model = GraphTriangleEncoder(in_channels,out_channels,**config['model']).to(device)
+    train_set = TriangleFeatureDataset(data_dir=data_dir, split='train', **config['data'])
+    val_set = TriangleFeatureDataset(data_dir=data_dir, split='valid', **config['data'])
+    test_set = TriangleFeatureDataset(data_dir=data_dir, split='test', **config['data'])
+    train_loader = DataLoader(train_set, batch_size, shuffle=True)
+    val_loader = DataLoader(val_set, batch_size=1, shuffle=False)
+    test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
+    in_channels = int(train_set.get_data_feature_dim())
+    out_channels = int(train_set.get_data_output_dim())
+
+    if args.model == 'cnn':
+        model = TriangleFeatureExtractor(in_channels,out_channels,**config['model']).to(device)
+    elif args.model == 'unet':
+        model = UNetTriangleModelRegression(**config['model']).to(device)
     else:
-        train_set = TriangleFeatureDataset(data_dir=data_dir, split='train', **config['data'])
-        val_set = TriangleFeatureDataset(data_dir=data_dir, split='valid', **config['data'])
-        test_set = TriangleFeatureDataset(data_dir=data_dir, split='test', **config['data'])
-        train_loader = DataLoader(train_set, batch_size, shuffle=True)
-        val_loader = DataLoader(val_set, batch_size=1, shuffle=False)
-        test_loader = DataLoader(test_set, batch_size=1, shuffle=False)
-        in_channels = int(train_set.get_data_feature_dim())
-        out_channels = int(train_set.get_data_output_dim())
-        if args.model == 'cnn':
-            model = TriangleFeatureExtractor(in_channels,out_channels,**config['model']).to(device)
-        elif args.model == 'unet':
-            model = UNetTriangleModelRegression(**config['model']).to(device)
-        else:
-           raise NotImplementedError('Model type needs to be either cnn or unet')
+       raise NotImplementedError('Model type needs to be either cnn or unet')
+
     logging.info('Done...\n')
     logging.info('Initializing...')
     optimizer, scheduler, out_dir, log_dir, base_dir = initialize(model, config['training'], config['tag'],

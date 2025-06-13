@@ -5,16 +5,15 @@ import argparse
 import geopandas as gpd
 import numpy as np
 from shapely.geometry import Point, LineString
-import pandas as pd
 from shapely.geometry.polygon import Polygon
 from tqdm import tqdm
 import logging
 from sklearn.metrics import f1_score
 from data.datasets import BuildingSimplificationDataset
-from train import test
+from .train import test
 from src.plotting import plot_iou_hd_quantiles, plot_footprints_with_node_labels
-from models import BuildingSimplificationGraphModel,BuildingSimplificationModel
-from utils import get_loss_fn
+from .models import BuildingSimplificationGraphModel,BuildingSimplificationModel
+from .utils import get_loss_fn
 
 
 def reconstruct_polygon(polygon, labels, pred_preMove, pred_nextMove):

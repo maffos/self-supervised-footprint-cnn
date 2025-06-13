@@ -1,7 +1,7 @@
 import torch
 import yaml
 import os
-from models import BuildingClassificationModel
+from .models import BuildingClassificationModel
 from data.datasets import ClassificationDataset
 from torch.utils.data import DataLoader
 from collections import defaultdict

@@ -17,6 +17,7 @@ class TriangleFeatureDataset(Dataset):
     def __init__(self, data_dir: str,
                  split: str,
                  transform: list = None,
+                 target_transform: list = None,
                  bucketize: bool = False,
                  batch_size: int = 64):
         """
@@ -29,12 +30,11 @@ class TriangleFeatureDataset(Dataset):
         """
 
         super(TriangleFeatureDataset, self).__init__()
-        # Determine the root directory (one level above src/)
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        # Set default data_dir to the 'data/' folder in the root directory
         self.data_dir = os.path.join(root_dir, data_dir) if data_dir else os.path.join(root_dir, "data")
         self.split = split
         self.transform = self._initialize_transforms(transform)
+        self.target_transform = self._initialize_transforms(target_transform)
         self.spatial_dim = -2
 
         feature_fname = f'x_{split}.bin'

@@ -6,8 +6,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils import ClassWeightedMAELoss
 from src.utils import save_checkpoint,initialize,setup_directories, save_config
 from data.datasets import get_dataloaders
-from models import BuildingSimplificationModel, BuildingSimplificationGraphModel
-from utils import automatic_weight,get_loss_fn,print_results,initialize_weights,convert_to_native
+from .models import BuildingSimplificationModel, BuildingSimplificationGraphModel
+from .utils import automatic_weight,get_loss_fn,print_results,initialize_weights,convert_to_native
 from sklearn.metrics import accuracy_score,f1_score
 import numpy as np
 import logging

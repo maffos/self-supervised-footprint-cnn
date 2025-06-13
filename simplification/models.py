@@ -1,4 +1,4 @@
-from src.models import GraphTriangleEncoder,GraphTriangleBlock,TriangleFeatureBlock,TriangleFeatureExtractor,TriangleConv
+from src.model_building_blocks import GraphTriangleEncoder,GraphTriangleBlock,TriangleFeatureBlock,TriangleFeatureExtractor,TriangleConv
 from src.utils import get_norm_layer,get_activation,get_graph_norm_layer,get_graph_conv_layer
 import torch
 from torch import nn
