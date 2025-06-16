@@ -151,26 +151,15 @@ def test_current_and_best_model(model,test_set,device,out_dir):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_type", choices=['vanilla','appendcoords'], default='vanilla', help="Model type")
-    args = parser.parse_args()
-    
-    if args.model_type == 'vanilla':
-        config_file = 'config/train_classification.yaml'
-    elif args.model_type == 'appendcoords':
-        config_file = 'config/train_classification_append.yaml'
-    else:
-        raise NotImplementedError(f'Valid model types are "vanilla" and "appendcoords", not {args.model_type}')
-                                  
+    data_dir = 'data/Classification'
+    config_file = 'config/train_classification.yaml'
     with open(config_file, "r") as file:
         config = yaml.safe_load(file)
 
     print('-------%s-------'%config['model_name'] + '\n')
     logging.info('Loading Dataset...')
-    train_set = ClassificationDataset(data_dir = 'resources/DPCN/data/', split='train', **config['data'])
-    val_set = ClassificationDataset(data_dir = 'resources/DPCN/data/', split='test', **config['data'])
-    #test_set = Model10DataSet(data_dir = 'resources/DPCN/data/', split='test', **config['data'])
+    train_set = ClassificationDataset(data_dir = data_dir, split='train', **config['data'])
+    val_set = ClassificationDataset(data_dir =data_dir, split='test', **config['data'])
     test_set = val_set
     logging.info('Done...\n')
     batch_size = 1 if config['data'].get('raw_coordinates', False) else config['batch_size']
@@ -179,6 +168,7 @@ if __name__ == '__main__':
     n_iter = 5
     logging.info('Initializing...')
     device = torch.device(config['device']) if torch.cuda.is_available() else 'cpu'
+    model = BuildingClassificationModel(**config['model']).to(device)
 
     total_results = {'acc': [], 'precision': [], 'recall': [], 'f1_score': []}
     mean = {'acc': 0., 'precision': 0., 'recall': 0., 'f1_score': 0.}
@@ -193,13 +183,6 @@ if __name__ == '__main__':
         if batch_size == 1 and config['model']['norm'] == 'batch':
             logging.info('Batchnorm was selected, but batch size is 1. Switching to group normalization...')
             config['model']['norm'] = 'group'
-
-        if args.model_type == 'vanilla':
-            model = BuildingClassificationModel(**config['model']).to(device)
-        elif args.model_type == 'appendcoords':
-            model = ClassificationAppendCoordsEveryLayerModel(**config['model']).to(device)
-        else:
-            raise NotImplementedError('Model type not implemented')
 
         optimizer, scheduler, out_dir, log_dir,base_dir = initialize(model, config['training'], config['tag'], model_name = config['model_name'] , run = i)
         loss_fn = CrossEntropyLoss()

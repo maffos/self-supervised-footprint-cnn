@@ -1,8 +1,6 @@
 data:
   transform: [swap_channels]
-  target_transform: [swap_channels]
   bucketize: False
-  load_raw_coords: True
   batch_size: 1
 device: cuda
 model:
@@ -19,7 +17,6 @@ model:
   norm: 'group'
   initial_num_groups: 16
   use_diff_encoder: False
-  block: TriangleFeatureBlock
   blocks_per_layer: 2
   num_layers: 2
   downsample: 'conv'
@@ -41,5 +38,5 @@ loss_fn: ScaledMAE
 training:
   lr: 1.0e-4
   lr_min: 1.0e-06
-  num_epochs: 300
+  num_epochs: 1
   weight_decay: 1.0e-06

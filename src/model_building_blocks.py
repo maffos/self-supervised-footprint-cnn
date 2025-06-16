@@ -30,6 +30,7 @@ class TriangleFeatureExtractor(nn.Module):
                  stride = 1,
                  hidden_dims=[64, 256, 256, 256],
                  activation='relu',
+                 swap_channels=False,
                  num_groups=None,
                  dropout=None,
                  conv_type = 'standard',
@@ -47,7 +48,7 @@ class TriangleFeatureExtractor(nn.Module):
         self.bias = norm is None
         self.num_groups = num_groups
         self.dropout = nn.Dropout(dropout) if dropout else nn.Identity()
-
+        self.swap_channels = swap_channels
         if conv_type == 'standard':
             self.conv_layer = nn.Sequential(nn.Conv1d(self.in_channels, self.hidden_dims[0], kernel_size=3, padding=1, stride = self.stride, padding_mode='circular', bias=self.bias),
                                 get_norm_layer(norm, self.hidden_dims[0],num_groups),
@@ -76,6 +77,8 @@ class TriangleFeatureExtractor(nn.Module):
         x = self.conv_layer(x,*inputs)
         x = self.mlp(x)
         x = self.out_layer(x)
+        if self.swap_channels:
+            x = x.permute(0,2,1)
         return x
 
 class TriangleFeatureBlock(nn.Module):
@@ -138,8 +141,9 @@ class TriangleFeatureBlock(nn.Module):
 
         coords_proj = self.coord_proj(coords) if self.append_coords else None
         out = self.activation(self.nl1(self.conv1(x)))
-        assert x.shape[-1] == coords_proj.shape[-1], f'wrong number of vertices, {x.shape}, {coords_proj.shape}, {self.coord_proj}'
         if self.append_coords:
+            assert x.shape[-1] == coords_proj.shape[
+                -1], f'wrong number of vertices, {x.shape}, {coords_proj.shape}, {self.coord_proj}'
             out = torch.cat([out,coords_proj], dim=1)
         out = self.conv2(out,*args) if self.conv_type == 'diffencoder' else self.activation(self.nl2(self.conv2(out, *args)))
         out = self.dropout(self.activation(self.nl3(self.conv3(out))))

@@ -208,4 +208,4 @@ class UNetTriangleModelRegression(nn.Module):
                 x = block(x, coords)
 
         x = self.out_layer(x)
-        return x
+        return x.permute(0,2,1)

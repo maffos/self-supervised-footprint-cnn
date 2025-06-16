@@ -2,12 +2,10 @@ import argparse
 import yaml
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-
-from utils import ClassWeightedMAELoss
 from src.utils import save_checkpoint,initialize,setup_directories, save_config
 from data.datasets import get_dataloaders
 from .models import BuildingSimplificationModel, BuildingSimplificationGraphModel
-from .utils import automatic_weight,get_loss_fn,print_results,initialize_weights,convert_to_native
+from .utils import automatic_weight,get_loss_fn,print_results,initialize_weights,convert_to_native,ClassWeightedMAELoss
 from sklearn.metrics import accuracy_score,f1_score
 import numpy as np
 import logging
@@ -16,27 +14,24 @@ import os
 
 def train(model, train_loader, val_loader, optimizer, loss_fn_move, loss_fn_remove, num_epochs,
           log_dir, out_dir, device, scheduler, start_epoch = 0):
-    # Set up TensorBoard logging
     writer = SummaryWriter(log_dir=log_dir)
 
     val_loss = 0
-    val_loss_regression = np.infty
+    val_loss_regression = np.inf
     logging.info('Start training...')
     prog_bar = tqdm(initial=start_epoch, total=start_epoch + num_epochs, desc="Training")
     for epoch in range(start_epoch, start_epoch+num_epochs):
 
         model.train()
         epoch_total_loss = []
-
         for batch in train_loader:
 
             x, y = batch['x'].to(device), batch['y'].to(device)
             additional_inputs = []
-            #todo: these have to be commented out for GNN's maybe it's better to separate cnn and gnn approach altogether
             if x.ndim > 3:
                 x = x.squeeze(0)
                 y = y.squeeze(0)
-            if x.ndim < 3:
+            if x.ndim < 3 and isinstance(model,BuildingSimplificationModel):
                 x = x.unsqueeze(0)
                 y = y.unsqueeze(0)
             if batch.get('edge_index', None) is not None:
@@ -55,9 +50,7 @@ def train(model, train_loader, val_loader, optimizer, loss_fn_move, loss_fn_remo
                 nextMove_loss = loss_fn_move(pred_nextMove, y[...,2])
 
             task_loss = torch.stack((rm_loss, preMove_loss, nextMove_loss))
-            #weight the losses of the individual tasks with learnable weights
             total_loss = automatic_weight(model.loss_weights, task_loss)
-            # Backpropagation
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
@@ -132,9 +125,6 @@ def evaluate(model, loss_fn_move, loss_fn_remove, data_loader, device, average= 
             if x.ndim > 3:
                 x = x.squeeze(0)
                 y = y.squeeze(0)
-            #if x.ndim < 3:
-            #    x = x.unsqueeze(0)
-            #    y = y.unsqueeze(0)
             if batch.get('edge_index', None) is not None:
                 edge_index = batch['edge_index'].to(device)
                 additional_inputs.append(edge_index)
@@ -251,19 +241,21 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", choices=["cnn", "gnn", 'transformer','unet'], default='unet', help="Model type")
+    parser.add_argument("--model", choices=["features", "pretrained", 'gcn','unet_vanilla','sage_conv','spline_conv'],
+                        default='pretrained', help="Model type")
     args = parser.parse_args()
-    if args.model == 'cnn':
-        #config_file = 'config/train_simplification.yaml'
-        config_file = 'config/train_simplification_append.yaml'
-    elif args.model == 'transformer':
-        config_file = 'config/transformer.yaml'
-    elif args.model == 'point_transformer':
-        config_file = 'config/train_point_transformer.yaml'
-    elif args.model == 'gnn':
-        config_file = 'config/train_simplification_gnn.yaml'
-    elif args.model == 'unet':
-        config_file = 'config/train_simplification_unet.yaml'
+    if args.model == 'features':
+        config_file = 'config/train_simplification_features.yaml'
+    elif args.model == 'pretrained':
+        config_file = 'config/train_simplification_pretrained.yaml'
+    elif args.model == 'unet_vanilla':
+        config_file = 'config/train_simplification_vanilla.yaml'
+    elif args.model == 'gcn':
+        config_file = 'config/train_simplification_gcn.yaml'
+    elif args.model == 'sage_conv':
+        config_file = 'config/train_simplification_sageconv.yaml'
+    elif args.model == 'spline_conv':
+        config_file = 'config/train_simplification_splineconv.yaml'
     else:
         raise NotImplementedError('Model must be one of cnn, transformer, gnn')
 
@@ -277,21 +269,17 @@ if __name__ == '__main__':
     logging.info('Done...\n')
     logging.info('Initializing...')
     device = torch.device(config['device']) if torch.cuda.is_available() else 'cpu'
-    if args.model == 'gnn':
+    if args.model in ['gcn','spline_conv', 'sage_conv']:
         model = BuildingSimplificationGraphModel(**config['model']).to(device)#
-    elif args.model == 'unet':
-        model = BuildingSimplificationModel(**config['model']).to(device)
     else:
-        raise NotImplementedError('Only CNN and Transformer models are supported')
+        model = BuildingSimplificationModel(**config['model']).to(device)
+
     optimizer, scheduler, out_dir, log_dir, base_dir = initialize(model, config['training'], config['tag'],
                                                                             model_name=config['model_name'])
 
     loss_fn_move = get_loss_fn(config['training']['loss_fn_reg'])
     loss_fn_remove = get_loss_fn(config['training']['loss_fn_cls'], device=device)
     if config.get('pretrained_weights_fname',False):
-        #model.triangle_embedding = initialize_weights_from_old_model(model.triangle_layer,config['pretrained_weights_fname'],device)
-        #weights = torch.load(config['pretrained_weights_fname'], map_location=device)
-        #model.triangle_embedding = intialize_feature_extractor_weights(model.triangle_embedding, config['pretrained_weights_fname'], device)
         model = initialize_weights(model, config['pretrained_weights_fname'], device)
     setup_directories(log_dir, out_dir)
     if not os.path.isfile(os.path.join(base_dir, 'config.yaml')):

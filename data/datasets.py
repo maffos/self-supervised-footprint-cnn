@@ -17,7 +17,6 @@ class TriangleFeatureDataset(Dataset):
     def __init__(self, data_dir: str,
                  split: str,
                  transform: list = None,
-                 target_transform: list = None,
                  bucketize: bool = False,
                  batch_size: int = 64):
         """
@@ -34,7 +33,6 @@ class TriangleFeatureDataset(Dataset):
         self.data_dir = os.path.join(root_dir, data_dir) if data_dir else os.path.join(root_dir, "data")
         self.split = split
         self.transform = self._initialize_transforms(transform)
-        self.target_transform = self._initialize_transforms(target_transform)
         self.spatial_dim = -2
 
         feature_fname = f'x_{split}.bin'
@@ -286,7 +284,7 @@ class ClassificationDataset(Dataset):
             label_test = label[train_size:]
             label_test = label_test.reshape(-1, 1)
 
-            bu_shape = gpd.read_file(data_dir + self.bu_filename + '.shp', encode='utf-8')
+            bu_shape = gpd.read_file(os.path.join(data_dir,self.bu_filename + '.shp'), encode='utf-8')
             bu_use = copy.deepcopy(bu_shape)
             bu_mbr, bu_use = get_shape_mbr(bu_use)
             bu_use = get_shape_normalize_final(bu_use, self.hparams['if_scale_y'])
@@ -573,7 +571,7 @@ class BuildingSimplificationGraphDataset(BuildingSimplificationDataset):
 
 
 def get_dataloaders(model_type, data_dir, batch_size, bucketize, **kwargs):
-    if model_type == 'gnn':
+    if model_type in ['gcn', 'sage_conv', 'spline_conv']:
         train_set = BuildingSimplificationGraphDataset(data_dir,
                                                        split='train',
                                                        batch_size=batch_size,

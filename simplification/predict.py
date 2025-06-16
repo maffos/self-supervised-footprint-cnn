@@ -54,10 +54,9 @@ def main():
     parser = argparse.ArgumentParser(description='Predict simplifications on test set')
     parser.add_argument('-t', action='store_true')
     parser.add_argument('-p', action='store_true', default = True)
-    parser.add_argument('--path', type=str, default='/home/maffos/PhD/workspace/TriangleParameterEstimation/runs/BuildingSimplification/Unet/Unet_pretrained_no-weighted-losses', help='Path to config directory')
-    parser.add_argument('--plot_dir', type=str,default='plots/BuildingSimplification/fully-pretrained-no-weighted-losses', help='Out dir for plots')
-    parser.add_argument('--model', type=str, default='unet',
-                        choices=['gnn' 'unet'],
+    parser.add_argument('--path', type=str, default='trained_models/simplification_pretrained.pkl', help='Path to config directory')
+    parser.add_argument('--plot_dir', type=str,default='plots/', help='Out dir for plots')
+    parser.add_argument('--model', type=str, default='cnn',
                         help='Model type to use for prediction')
     parser.add_argument('--checkpoint', type=str, default='best', choices = ['best', 'last'],
                         help='Checkpoint file to load (default: best)')
@@ -75,6 +74,7 @@ def main():
         config = yaml.safe_load(f)
 
     device = torch.device('cpu')
+
 
     # Load model
     if args.model == 'gnn':

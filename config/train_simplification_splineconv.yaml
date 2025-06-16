@@ -49,5 +49,5 @@ training:
   loss_fn_reg: ClassWeightedMAE
   lr: 0.001
   lr_min: 1.0e-05
-  num_epochs: 500
+  num_epochs: 1
   weight_decay: 1.0e-06

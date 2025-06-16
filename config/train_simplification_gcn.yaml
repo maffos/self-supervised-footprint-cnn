@@ -4,8 +4,6 @@ data:
   edge_attr_type: distance_weights
   target_transform:
   - zero_out_no_move
-  transforms:
-  - swap_channels
 device: cuda:1
 model:
   block_params:
@@ -42,5 +40,5 @@ training:
   loss_fn_reg: ClassWeightedMAE
   lr: 0.001
   lr_min: 1.0e-05
-  num_epochs: 500
+  num_epochs: 1
   weight_decay: 1.0e-06

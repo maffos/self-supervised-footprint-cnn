@@ -1,5 +1,4 @@
 data:
-  transforms: [swap_channels]
   target_transform: [zero_out_no_move]
   batch_size: 1
   bucketize: False

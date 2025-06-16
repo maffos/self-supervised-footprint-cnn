@@ -24,8 +24,7 @@ class BuildingClassificationModel(nn.Module):
         self.hidden_dims = hidden_dims if hidden_dims else [self.triangle_feature_dim * 2 ** i for i in range(len(blocks_per_layer) + 1)]
         self.triangle_feature_dim = triangle_embed_params['out_channels']
         assert self.hidden_dims[0] == self.triangle_feature_dim, 'First Hidden layer needs to have same size as triangle feature embedding'
-        self.triangle_embedding = TriangleFeatureExtractor(self.in_channels,swap_channels=False,
-                                                            input_downsample=False, **triangle_embed_params)
+        self.triangle_embedding = TriangleFeatureExtractor(self.in_channels,swap_channels=False, **triangle_embed_params)
 
         self.triangle_norm = get_norm_layer(triangle_embed_params['norm'], self.triangle_feature_dim, triangle_embed_params['num_groups'])
         self.triangle_act = get_activation(triangle_embed_params['activation'])
