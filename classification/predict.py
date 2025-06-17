@@ -16,7 +16,7 @@ if __name__ =="__main__":
     parser.add_argument("-outfile", help="outfile for plotting", default='plots/classification_results.svg')
     args = parser.parse_args()
 
-    data_dir = 'data/classification'
+    data_dir = 'data/Classification'
     print("Classifying Buildings...")
     checkpoint_file = args.chkpt_file
     outfile = args.outfile
