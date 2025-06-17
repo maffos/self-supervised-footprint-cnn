@@ -19,7 +19,7 @@ model:
     activation: 'relu'
     dropout: null
     out_channels: 256
-    hidden_dims: [256,256,256,256]
+    hidden_dims: [256,256,256]
     norm: null
     mlp_norm: null
     num_groups: null

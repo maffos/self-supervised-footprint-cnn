@@ -11,21 +11,18 @@ import argparse
 if __name__ =="__main__":
     torch.manual_seed(2)
     parser = argparse.ArgumentParser()
-    parser.add_argument("-model_path", help="Path to model directory")
-    parser.add_argument("-chkpt_file", help="filename of checkpoint to load")
-    parser.add_argument("-outfile", help="outfile for plotting")
+    parser.add_argument("-config_file", help="Path to config file", default='config/train_classification.yaml')
+    parser.add_argument("-chkpt_file", help="filename of checkpoint to load", default='trained_models/classification.pkl')
+    parser.add_argument("-outfile", help="outfile for plotting", default='plots/classification_results.svg')
     args = parser.parse_args()
 
     data_dir = 'data/classification'
     print("Classifying Buildings...")
-    model_path = args.model_path
     checkpoint_file = args.chkpt_file
     outfile = args.outfile
-    config_file = os.path.join(model_path, 'config.yaml')
-    with open(config_file, "r") as file:
+    with open(args.config_file, "r") as file:
         config = yaml.safe_load(file)
-    checkpoint = torch.load(os.path.join(model_path,checkpoint_file),
-                            map_location='cpu')
+    checkpoint = torch.load(checkpoint_file,map_location='cpu')
     model = BuildingClassificationModel(**config['model']).to('cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()

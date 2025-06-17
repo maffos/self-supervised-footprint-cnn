@@ -1,6 +1,6 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torch_geometric.data import DataLoader as PyGDataLoader
+from torch_geometric.loader import DataLoader as PyGDataLoader
 from torch_geometric.data import Data as GraphData
 import os
 import geopandas as gpd
@@ -246,7 +246,6 @@ class TriangleFeatureGraphDataset(TriangleFeatureDataset):
 
         super(TriangleFeatureGraphDataset, self).__init__(*args, **kwargs)
         self.compute_edge_weights = compute_edge_weights
-
     def __getitem__(self, idx):
         batch = super().__getitem__(idx)
         edge_index = create_polygon_edge_index(batch['x'].shape[0]).to(batch['x'].device)

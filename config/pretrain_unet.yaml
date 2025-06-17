@@ -38,5 +38,5 @@ loss_fn: ScaledMAE
 training:
   lr: 1.0e-4
   lr_min: 1.0e-06
-  num_epochs: 1
+  num_epochs: 150
   weight_decay: 1.0e-06

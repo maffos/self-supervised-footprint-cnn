@@ -23,15 +23,13 @@ model:
   norm: 'group'
   initial_num_groups: 16
   use_diff_encoder: True
-  concat_class_probs: True
+  concat_class_probs: False
   head_type: 'mlp'
   blocks_per_layer: 2
   num_layers: 2
   downsample: 'conv'
   triangle_embed_params:
     hidden_dims:
-    - 256
-    - 256
     - 256
     - 256
     activation: relu

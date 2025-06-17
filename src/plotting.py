@@ -6,7 +6,8 @@ from matplotlib import patches
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.patches import FancyArrowPatch
 import matplotlib as mpl
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon as SHPolygon
+from matplotlib.patches import Polygon
 import os
 
 def plot_polygons_with_labels(collected_samples, predicted_labels, class_colors=None, save_path=None,
@@ -189,13 +190,10 @@ def plot_footprints_with_node_labels(original_vertices, gt_labels, pred_labels, 
 def plot_reconstructed_footprints(original_vertices, reconstructed_footprint, ground_truth_footprint,
                                    save_path=None, title=None, ax = None, show_legend=True, show = True, show_labels = True, value = None):
 
-    from shapely.geometry.polygon import Polygon as SHPolygon
-    # Set up seaborn style
     sns.set_theme(style="white")
     colors = sns.color_palette("pastel")
 
     if ax is None:
-        # Create figure with seaborn aesthetics
         plt.figure(figsize=(12, 10))
         ax = plt.gca()
 
@@ -205,11 +203,9 @@ def plot_reconstructed_footprints(original_vertices, reconstructed_footprint, gr
         x_orig = [point.x for point in original_vertices]
         y_orig = [point.y for point in original_vertices]
 
-    # Calculate the centroid (center point) of the original footprint to use as offset
     centroid_x = np.mean(x_orig)
     centroid_y = np.mean(y_orig)
 
-    # Center all coordinates by subtracting the centroid
     x_orig_centered = x_orig - centroid_x
     y_orig_centered = y_orig - centroid_y
 
@@ -218,16 +214,15 @@ def plot_reconstructed_footprints(original_vertices, reconstructed_footprint, gr
         x_orig_centered = np.append(x_orig_centered, x_orig_centered[0])
         y_orig_centered = np.append(y_orig_centered, y_orig_centered[0])
 
-    # Create and plot polygon with fill and no edge
     if show_labels:
         poly_orig = Polygon(np.column_stack([x_orig_centered, y_orig_centered]),
-                            facecolor=colors[0],  # First pastel color
+                            facecolor=colors[0],
                             edgecolor='none',
                             alpha=0.5,
                             label='Original')
     else:
         poly_orig = Polygon(np.column_stack([x_orig_centered, y_orig_centered]),
-                            facecolor=colors[0],  # First pastel color
+                            facecolor=colors[0],
                             edgecolor='none',
                             alpha=0.5)
 

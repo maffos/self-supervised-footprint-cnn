@@ -52,42 +52,54 @@ def reconstruct_polygon(polygon, labels, pred_preMove, pred_nextMove):
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser(description='Predict simplifications on test set')
-    parser.add_argument('-t', action='store_true')
-    parser.add_argument('-p', action='store_true', default = True)
-    parser.add_argument('--path', type=str, default='trained_models/simplification_pretrained.pkl', help='Path to config directory')
+    parser.add_argument('-t', action='store_true', default=True, help='run test method.')
+    parser.add_argument('-p', action='store_true', default = True, help='predict test set.')
+    parser.add_argument('--chkpnt_path', type=str, default='trained_models/simplification_pretrained.pkl', help='Path to model checkpoint')
+    parser.add_argument('--config_path', type=str, default='config/train_simplification_pretrained.yaml', help='Path to config file')
     parser.add_argument('--plot_dir', type=str,default='plots/', help='Out dir for plots')
-    parser.add_argument('--model', type=str, default='cnn',
-                        help='Model type to use for prediction')
-    parser.add_argument('--checkpoint', type=str, default='best', choices = ['best', 'last'],
-                        help='Checkpoint file to load (default: best)')
-    parser.add_argument('--outfile', type=str, default='predictions.shp',
+    parser.add_argument('--model', type=str, choices=["features", "pretrained", 'gcn','unet_vanilla','sage_conv','spline_conv','custom_cnn','custom_gnn'],
+                        default='pretrained', help='Model type to use for prediction. If "gnn" or "cnn" is used, correct config and checkpoints need to be provided')
+    parser.add_argument('--outfile', type=str, default='simplification_results.shp',
                         help='Output file to save predictions (default: predictions.shp)')
-    parser.add_argument('--outdir', type=str, default='results')
+    parser.add_argument('--outdir', type=str, default='results/BuildingSimplification')
     args = parser.parse_args()
 
     random_state = 4
     torch.manual_seed(random_state)
     assert args.p or args.t, "usage: Must specify at least one of -t (test) or -p (predict)"
+
+    if args.model == 'features':
+        args.config_path = 'config/train_simplification_features.yaml'
+        args.chkpnt_path = 'trained_models/simplification_features.pkl'
+    elif args.model == 'pretrained':
+        args.config_path = 'config/train_simplification_pretrained.yaml'
+        args.chkpnt_path = 'trained_models/simplification_pretrained.pkl'
+    elif args.model == 'unet_vanilla':
+        args.config_path = 'config/train_simplification_vanilla.yaml'
+        args.chkpnt_path = 'trained_models/simplification_vanilla.pkl'
+
     # Load configuration
-    config_path = os.path.join(args.path, 'config.yaml')
-    with open(config_path, 'r') as f:
+    with open(args.config_path, 'r') as f:
         config = yaml.safe_load(f)
 
     device = torch.device('cpu')
 
-
     # Load model
     if args.model == 'gnn':
         model = BuildingSimplificationGraphModel(**config['model']).to(device)
-    elif args.model == 'unet':
+    elif args.model in ['pretrained','cnn','features', 'unet_vanilla']:
         model = BuildingSimplificationModel(**config['model']).to(device)
     else:
         raise NotImplementedError('Model type not supported')
 
     # Load checkpoint
-    checkpoint_path = os.path.join(args.path, args.checkpoint+'_model.pkl')
-    logging.info(f"Loading checkpoint from {checkpoint_path}")
-    chkpt = torch.load(checkpoint_path, map_location=device)
+    logging.info(f"Loading checkpoint from {args.chkpnt_path}")
+    chkpt = torch.load(args.chkpnt_path, map_location=device)
+    for name in chkpt['model_state_dict']:
+        if name in model.state_dict().keys():
+            print(f'checkpoint {name} loaded')
+        else:
+            print(f'checkpoint {name} not loaded')
     model.load_state_dict(chkpt['model_state_dict'])
     model.eval()
 
@@ -101,10 +113,12 @@ def main():
     )
 
     if args.t:
-        test_out = os.path.join(args.path, 'test_results.csv')
+        test_out = os.path.join(args.outdir, 'test_results.csv')
+        if not os.path.exists(args.outdir):
+            os.makedirs(os.path.dirname(args.outdir), exist_ok=True)
         loss_fn_move = get_loss_fn(config['training']['loss_fn_reg'])
         loss_fn_remove = get_loss_fn(config['training']['loss_fn_cls'])
-        _ = test(model,test_loader,test_out,device,loss_fn_move,loss_fn_remove, average='macro')
+        results = test(model,test_loader,test_out,device,loss_fn_move,loss_fn_remove, average='macro')
     logging.info(f"Loaded test dataset with {len(test_set)} samples")
 
     # Store prediction
@@ -156,7 +170,6 @@ def main():
                 for label in rm_targets:
                     gt_class_counts[label] += 1
 
-                # Update class prediction counters
                 for pred in pred_labels:
                     class_prediction_counts[pred] += 1
 
@@ -166,7 +179,6 @@ def main():
                 #swap channels from convolutional to sequential
                 x,y,metadata = x.squeeze().permute(1,0), y.squeeze(),metadata.squeeze()
                 pred_preMove, pred_nextMove = pred_preMove.squeeze(), pred_nextMove.squeeze()
-                #predict reconstructed building polygons
                 y_preds.append(pred_labels)
                 y_gts.append(y[:,0].numpy())
                 geometry = [Point(metadata[vid][2], metadata[vid][3]) for vid in range(len(metadata))]

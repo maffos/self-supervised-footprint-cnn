@@ -17,7 +17,6 @@ def train(model, train_loader, val_loader, optimizer, loss_fn_move, loss_fn_remo
     writer = SummaryWriter(log_dir=log_dir)
 
     val_loss = 0
-    val_loss_regression = np.inf
     logging.info('Start training...')
     prog_bar = tqdm(initial=start_epoch, total=start_epoch + num_epochs, desc="Training")
     for epoch in range(start_epoch, start_epoch+num_epochs):
@@ -79,12 +78,6 @@ def train(model, train_loader, val_loader, optimizer, loss_fn_move, loss_fn_remo
         if eval_removal_dict['f1'] > val_loss:
             val_loss = eval_removal_dict['f1']
             best_model_path = f"{out_dir}/best_model.pkl"
-            save_checkpoint(epoch, model, optimizer, best_model_path, scheduler)
-
-        combined_regression_score = 0.5*(eval_nextMove_dict['mae']+eval_preMove_dict['mae'])
-        if combined_regression_score < val_loss_regression:
-            val_loss_regression = combined_regression_score
-            best_model_path = f"{out_dir}/best_model_regression.pkl"
             save_checkpoint(epoch, model, optimizer, best_model_path, scheduler)
 
         prog_bar.set_description(f"Train Loss: {epoch_avg_loss:.4f}; Val acc: {eval_removal_dict['accuracy']:.4f}")
@@ -175,9 +168,6 @@ def evaluate(model, loss_fn_move, loss_fn_remove, data_loader, device, average= 
     eval_removal_dict = {
         'accuracy': np.mean(eval_removal_metrics['accuracy']),
         'f1': np.mean(eval_removal_metrics['f1']),
-        'f1-micro': f1_score(np.concatenate(gt_rm_list), np.concatenate(pred_rm_list), average='micro'),
-        'f1-macro': f1_score(np.concatenate(gt_rm_list), np.concatenate(pred_rm_list), average='macro'),
-        'f1-weighted': f1_score(np.concatenate(gt_rm_list), np.concatenate(pred_rm_list), average='weighted'),
     }
 
     eval_preMove_dict = {
@@ -215,24 +205,18 @@ def test(model,data_loader,outfile,device,loss_fn_move,loss_fn_remove, average='
 
 def test_current_and_best_model(model,test_loader,out_dir,device,loss_fn_move,loss_fn_remove, average='macro'):
     logging.info("Testing latest model...")
-    last_results = test(model, test_loader, os.path.join(out_dir, 'last_results.csv'), device, loss_fn_move,loss_fn_remove, average)
+    test(model, test_loader, os.path.join(out_dir, 'last_results.csv'), device, loss_fn_move,loss_fn_remove, average)
     logging.info("Restoring model from previous checkpoint...")
     checkpoint = torch.load(os.path.join(out_dir, 'best_model.pkl'),
                             map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     logging.info("Testing best model...")
-    best_results = test(model, test_loader, os.path.join(out_dir, 'best_results.csv'), device, loss_fn_move,loss_fn_remove, average)
+    test(model, test_loader, os.path.join(out_dir, 'best_results.csv'), device, loss_fn_move,loss_fn_remove, average)
     logging.info("Done...\n")
     logging.info("Restoring model from previous checkpoint...")
     checkpoint = torch.load(os.path.join(out_dir, 'best_model_regression.pkl'),
                             map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
-    logging.info("Testing best regression model...")
-    best_results_regression = test(model, test_loader, os.path.join(out_dir, 'best_results_regression.csv'), device, loss_fn_move,
-                        loss_fn_remove, average)
-    logging.info("Done...\n")
-
-    return last_results,best_results, best_results_regression
 
 if __name__ == '__main__':
 
@@ -298,5 +282,4 @@ if __name__ == '__main__':
     train(model, train_loader, val_loader, optimizer, loss_fn_move, loss_fn_remove, config['training']['num_epochs'],
           log_dir, out_dir, device, scheduler, start_epoch)
 
-    #last_results, best_results = test_current_and_best_model(out_dir, device, model, loss_fn_move, loss_fn_remove, test_loader)
-    last_results, best_results, best_results_regression = test_current_and_best_model(model,test_loader,out_dir,device,loss_fn_move,loss_fn_remove, 'macro')
+    test_current_and_best_model(model,test_loader,out_dir,device,loss_fn_move,loss_fn_remove, 'macro')
