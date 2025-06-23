@@ -4,8 +4,6 @@ data:
   edge_attr_type: distance_weights
   target_transform:
   - zero_out_no_move
-  transforms:
-  - swap_channels
 device: cuda
 model:
   block_params:

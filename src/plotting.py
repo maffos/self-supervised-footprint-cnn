@@ -97,7 +97,8 @@ def plot_polygons_with_labels(collected_samples, predicted_labels, class_colors=
     # Save or show the plot
     if save_path:
         plt.savefig(save_path, bbox_inches='tight')
-    plt.show()
+    else:
+        plt.show()
     
 def plot_footprints_with_node_labels(original_vertices, gt_labels, pred_labels, save_path=None, title = None):
     """

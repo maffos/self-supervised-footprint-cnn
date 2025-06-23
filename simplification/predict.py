@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--chkpnt_path', type=str, default='trained_models/simplification_pretrained.pkl', help='Path to model checkpoint')
     parser.add_argument('--config_path', type=str, default='config/train_simplification_pretrained.yaml', help='Path to config file')
     parser.add_argument('--plot_dir', type=str,default='plots/', help='Out dir for plots')
-    parser.add_argument('--model', type=str, choices=["features", "pretrained", 'gcn','unet_vanilla','sage_conv','spline_conv','custom_cnn','custom_gnn'],
+    parser.add_argument('--model', type=str, choices=['pretrained','cnn','gnn'],
                         default='pretrained', help='Model type to use for prediction. If "gnn" or "cnn" is used, correct config and checkpoints need to be provided')
     parser.add_argument('--outfile', type=str, default='simplification_results.shp',
                         help='Output file to save predictions (default: predictions.shp)')
@@ -68,15 +68,10 @@ def main():
     torch.manual_seed(random_state)
     assert args.p or args.t, "usage: Must specify at least one of -t (test) or -p (predict)"
 
-    if args.model == 'features':
-        args.config_path = 'config/train_simplification_features.yaml'
-        args.chkpnt_path = 'trained_models/simplification_features.pkl'
-    elif args.model == 'pretrained':
+    if args.model == 'pretrained':
         args.config_path = 'config/train_simplification_pretrained.yaml'
-        args.chkpnt_path = 'trained_models/simplification_pretrained.pkl'
-    elif args.model == 'unet_vanilla':
-        args.config_path = 'config/train_simplification_vanilla.yaml'
-        args.chkpnt_path = 'trained_models/simplification_vanilla.pkl'
+        args.chkpnt_path = 'trained_models/simplification.pkl'
+
 
     # Load configuration
     with open(args.config_path, 'r') as f:
@@ -95,11 +90,6 @@ def main():
     # Load checkpoint
     logging.info(f"Loading checkpoint from {args.chkpnt_path}")
     chkpt = torch.load(args.chkpnt_path, map_location=device)
-    for name in chkpt['model_state_dict']:
-        if name in model.state_dict().keys():
-            print(f'checkpoint {name} loaded')
-        else:
-            print(f'checkpoint {name} not loaded')
     model.load_state_dict(chkpt['model_state_dict'])
     model.eval()
 
@@ -115,7 +105,7 @@ def main():
     if args.t:
         test_out = os.path.join(args.outdir, 'test_results.csv')
         if not os.path.exists(args.outdir):
-            os.makedirs(os.path.dirname(args.outdir), exist_ok=True)
+            os.makedirs(args.outdir, exist_ok=True)
         loss_fn_move = get_loss_fn(config['training']['loss_fn_reg'])
         loss_fn_remove = get_loss_fn(config['training']['loss_fn_cls'])
         results = test(model,test_loader,test_out,device,loss_fn_move,loss_fn_remove, average='macro')
