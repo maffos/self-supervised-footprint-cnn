@@ -11,7 +11,7 @@ import logging
 from sklearn.metrics import f1_score
 from data.datasets import BuildingSimplificationDataset
 from .train import test
-from src.plotting import plot_iou_hd_quantiles, plot_footprints_with_node_labels
+from src.plotting import plot_iou_hd_quantiles, plot_footprints_with_node_labels, presentation_simplification_plot
 from .models import BuildingSimplificationGraphModel,BuildingSimplificationModel
 from .utils import get_loss_fn
 
@@ -170,7 +170,7 @@ def main():
                 x,y,metadata = x.squeeze().permute(1,0), y.squeeze(),metadata.squeeze()
                 pred_preMove, pred_nextMove = pred_preMove.squeeze(), pred_nextMove.squeeze()
                 y_preds.append(pred_labels)
-                y_gts.append(y[:,0].numpy())
+                y_gts.append(y.numpy())
                 geometry = [Point(metadata[vid][2], metadata[vid][3]) for vid in range(len(metadata))]
 
                 polygon_gt = reconstruct_polygon(geometry, rm_targets, y[:,1].numpy(), y[:,2].numpy())
@@ -216,7 +216,8 @@ def main():
         jaccard_sorted = results.sort_values(by=['jaccard_coeff'], ascending = False)
         jaccard_sorted.jaccard_coeff = 1-jaccard_sorted.jaccard_coeff
         plot_iou_hd_quantiles(hd_sorted, jaccard_sorted, args.plot_dir, quantiles = [0.25,0.5,0.75,1.], plot_uppers=False)
-        plot_footprints_with_node_labels(footprints[10], y_gts[10], y_preds[10],save_path = os.path.join(args.plot_dir, 'pred_gt_node_labels.png'))
+        plot_footprints_with_node_labels(footprints[10], y_gts[10][:,0], y_preds[10],save_path = os.path.join(args.plot_dir, 'pred_gt_node_labels.png'))
+        presentation_simplification_plot(footprints[10],y_gts[10],results.loc[10,'reconstructed_gt'], show_labels=True, save_path=os.path.join(args.plot_dir, 'presentation_simplification.png'))
         print('Fraction of footprints with perfect reconstruction: ', np.sum(results.jaccard_coeff==1)/len(results))
         print(f'IoU: {results.jaccard_coeff.mean()} +- {results.jaccard_coeff.std()}')
         print(f'HD: {results.hd_dist.mean()} +- {results.hd_dist.std()}')

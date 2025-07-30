@@ -7,6 +7,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 from matplotlib.patches import FancyArrowPatch
 import matplotlib as mpl
 from shapely.geometry import Polygon as SHPolygon
+from shapely.geometry import LineString
 from matplotlib.patches import Polygon
 import os
 
@@ -99,7 +100,146 @@ def plot_polygons_with_labels(collected_samples, predicted_labels, class_colors=
         plt.savefig(save_path, bbox_inches='tight')
     else:
         plt.show()
-    
+
+def presentation_simplification_plot(original_vertices,gt_labels,ground_truth_footprint, show_labels=True,title=None,save_path=None):
+
+    from shapely.geometry.polygon import Polygon as SHPolygon
+
+    fig,ax = plt.subplots(figsize=(12, 10))
+    # Set up seaborn style
+    sns.set_theme(style="white")
+    colors = sns.color_palette("pastel")
+
+    if ax is None:
+        # Create figure with seaborn aesthetics
+        plt.figure(figsize=(12, 10))
+        ax = plt.gca()
+
+    if isinstance(original_vertices, SHPolygon):
+        x_orig, y_orig = original_vertices.exterior.xy
+    else:
+        x_orig = [point.x for point in original_vertices]
+        y_orig = [point.y for point in original_vertices]
+
+    # Calculate the centroid (center point) of the original footprint to use as offset
+    centroid_x = np.mean(x_orig)
+    centroid_y = np.mean(y_orig)
+
+    # Center all coordinates by subtracting the centroid
+    x_orig_centered = x_orig - centroid_x
+    y_orig_centered = y_orig - centroid_y
+
+    # Plot vertices with gt labels
+    remove_xs, remove_ys = x_orig_centered[:-1][gt_labels[:, 0] == 0], y_orig_centered[:-1][gt_labels[:, 0] == 0]
+    keep_xs, keep_ys = x_orig_centered[:-1][gt_labels[:, 0] == 1], y_orig_centered[:-1][gt_labels[:, 0] == 1]
+    move_xs, move_ys = x_orig_centered[:-1][gt_labels[:, 0] == 2], y_orig_centered[:-1][gt_labels[:, 0] == 2]
+    ax.scatter(remove_xs, remove_ys, color=colors[4], s=500, edgecolor='black', zorder=10, label='Remove')
+    ax.scatter(keep_xs, keep_ys, color=colors[2], s=500, edgecolor='black', zorder=10, label='Keep')
+    ax.scatter(move_xs, move_ys, color=colors[3], s=500, edgecolor='black', zorder=10, label='Move')
+
+    # Close the polygon if needed
+    if (x_orig_centered[0] != x_orig_centered[-1]) or (y_orig_centered[0] != y_orig_centered[-1]):
+        x_orig_centered = np.append(x_orig_centered, x_orig_centered[0])
+        y_orig_centered = np.append(y_orig_centered, y_orig_centered[0])
+
+    # Create and plot polygon with fill and no edge
+    if show_labels:
+        poly_orig = Polygon(np.column_stack([x_orig_centered, y_orig_centered]),
+                            facecolor=colors[0],  # First pastel color
+                            edgecolor='none',
+                            alpha=0.5,
+                            label='Original')
+    else:
+        poly_orig = Polygon(np.column_stack([x_orig_centered, y_orig_centered]),
+                            facecolor=colors[0],  # First pastel color
+                            edgecolor='none',
+                            alpha=0.5)
+
+    ax.add_patch(poly_orig)
+
+    # Plot ground truth footprint with orange line
+    if isinstance(ground_truth_footprint, SHPolygon):
+        x_gt, y_gt = ground_truth_footprint.exterior.xy
+    else:
+        x_gt = [point.x for point in ground_truth_footprint]
+        y_gt = [point.y for point in ground_truth_footprint]
+
+    x_gt_centered = x_gt - centroid_x
+    y_gt_centered = y_gt - centroid_y
+
+    # Close the polygon if needed
+    if (x_gt_centered[0] != x_gt_centered[-1]) or (y_gt_centered[0] != y_gt_centered[-1]):
+        x_gt_centered = np.append(x_gt_centered, x_gt_centered[0])
+        y_gt_centered = np.append(y_gt_centered, y_gt_centered[0])
+
+    ax.plot(x_gt_centered, y_gt_centered, '--', color='black', linewidth=2.5, label='simplification')
+
+    #plot displacement vectors
+    legend_added = {'preMove': False, 'nextMove': False}  # Track legend entries
+
+    for i in range(len(original_vertices)-1):
+        if gt_labels[i, 0] == 2:
+            prev_idx = (i - 1) % len(original_vertices)
+            next_idx = (i + 1) % len(original_vertices)
+            prev_vertex = [x_orig_centered[prev_idx], y_orig_centered[prev_idx]]
+            next_vertex = [x_orig_centered[next_idx], y_orig_centered[next_idx]]
+            vec_pre = [x_orig_centered[i] - prev_vertex[0], y_orig_centered[i] - prev_vertex[1]]
+            vec_next = [next_vertex[0]-x_orig_centered[i], next_vertex[1]-y_orig_centered[i]]
+            vec_pre_mod = LineString([prev_vertex, (x_orig_centered[i],y_orig_centered[i])]).length
+            vec_next_mod = LineString([next_vertex, (x_orig_centered[i],y_orig_centered[i])]).length
+
+            if vec_pre_mod > 0:
+                pre_dir = (vec_pre[0]/vec_pre_mod, vec_pre[1]/vec_pre_mod)
+            if vec_next_mod > 0:
+                next_dir = (vec_next[0]/vec_next_mod, vec_next[1]/vec_next_mod)
+
+            nextMove = (gt_labels[i,2] * next_dir[0], gt_labels[i,2] * next_dir[1])
+            preMove = (gt_labels[i,1] * pre_dir[0], gt_labels[i,1] * pre_dir[1])
+
+            # Plot preMove vector
+            if not (preMove[0] == 0 and preMove[1] == 0):
+                print(preMove)
+                if not legend_added['preMove']:
+                    ax.arrow(x_orig_centered[i], y_orig_centered[i],
+                             preMove[0], preMove[1],
+                             color='firebrick', width=0.07,
+                             fc='firebrick', ec='firebrick', label='preMove',length_includes_head=True,
+                             alpha=1)
+                    legend_added['preMove'] = True
+                else:
+                    ax.arrow(x_orig_centered[i], y_orig_centered[i],
+                             preMove[0], preMove[1],
+                             color='firebrick', width=0.07,
+                             fc='firebrick', ec='firebrick',length_includes_head=True,alpha=1)
+
+            # Plot nextMove arrow
+            if not (nextMove[0] == 0 and nextMove[1] == 0):
+                print(nextMove)
+                if not legend_added['nextMove']:
+                    ax.arrow(x_orig_centered[i], y_orig_centered[i],
+                             nextMove[0], nextMove[1],
+                             color='fuchsia', width=0.07,
+                             fc='fuchsia', ec='fuchsia', label='nextMove',length_includes_head=True,alpha=1)
+                    legend_added['nextMove'] = True
+                else:
+                    ax.arrow(x_orig_centered[i], y_orig_centered[i],
+                             nextMove[0], nextMove[1],
+                             color='fuchsia', width=0.07,
+                             fc='fuchsia', ec='fuchsia',length_includes_head=True,alpha=1)
+    ax.set_aspect('equal')
+    ax.set_axis_off()
+    fig.tight_layout()
+    fig.legend(loc='center', fontsize=20)
+
+    if title:
+        plt.title(title, fontsize=24)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
+
 def plot_footprints_with_node_labels(original_vertices, gt_labels, pred_labels, save_path=None, title = None):
     """
     Plot original footprint, reconstructed footprint, and ground truth footprint.
@@ -159,7 +299,7 @@ def plot_footprints_with_node_labels(original_vertices, gt_labels, pred_labels, 
         x = x_orig_centered[i]
         y = y_orig_centered[i]
         label = pred_labels[i]
-        ax[1].scatter(x, y, color=label_colors[label], s=200, edgecolor='black', zorder=10)
+        ax[1].scatter(x, y, color=label_colors[label], s=300, edgecolor='black', zorder=10)
 
     # Create custom legend elements for the vertex labels
     from matplotlib.lines import Line2D
