@@ -175,8 +175,8 @@ def presentation_simplification_plot(original_vertices,gt_labels,ground_truth_fo
     ax.plot(x_gt_centered, y_gt_centered, '--', color='black', linewidth=2.5, label='simplification')
 
     #plot displacement vectors
-    legend_added = {'preMove': False, 'nextMove': False}  # Track legend entries
-
+    #legend_added = {'preMove': False, 'nextMove': False}  # Track legend entries
+    legend_added = False
     for i in range(len(original_vertices)-1):
         if gt_labels[i, 0] == 2:
             prev_idx = (i - 1) % len(original_vertices)
@@ -195,8 +195,22 @@ def presentation_simplification_plot(original_vertices,gt_labels,ground_truth_fo
 
             nextMove = (gt_labels[i,2] * next_dir[0], gt_labels[i,2] * next_dir[1])
             preMove = (gt_labels[i,1] * pre_dir[0], gt_labels[i,1] * pre_dir[1])
-
-            # Plot preMove vector
+            displacement = (nextMove[0]+preMove[0], nextMove[1]+preMove[1])
+            if not legend_added:
+                ax.arrow(x_orig_centered[i], y_orig_centered[i],
+                         displacement[0], displacement[1],
+                         color='black', width=0.06,
+                         fc='black', ec='black', label='displacement', length_includes_head=True,
+                         alpha=1)
+                legend_added = True
+            else:
+                ax.arrow(x_orig_centered[i], y_orig_centered[i],
+                         displacement[0], displacement[1],
+                         color='black', width=0.06,
+                         fc='black', ec='black', length_includes_head=True,
+                         alpha=1)
+            # Plot combined displacement vector
+            """
             if not (preMove[0] == 0 and preMove[1] == 0):
                 print(preMove)
                 if not legend_added['preMove']:
@@ -226,6 +240,7 @@ def presentation_simplification_plot(original_vertices,gt_labels,ground_truth_fo
                              nextMove[0], nextMove[1],
                              color='fuchsia', width=0.07,
                              fc='fuchsia', ec='fuchsia',length_includes_head=True,alpha=1)
+             """
     ax.set_aspect('equal')
     ax.set_axis_off()
     fig.tight_layout()
