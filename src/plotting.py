@@ -255,6 +255,99 @@ def presentation_simplification_plot(original_vertices,gt_labels,ground_truth_fo
     else:
         plt.show()
 
+def presentation_simplification_plot2(original_vertices, ground_truth_footprint,title=None, save_path=None):
+
+        from shapely.geometry.polygon import Polygon as SHPolygon
+
+        fig, ax = plt.subplots(figsize=(12, 10))
+        # Set up seaborn style
+        sns.set_theme(style="white")
+        colors = sns.color_palette("pastel")
+
+        if ax is None:
+            # Create figure with seaborn aesthetics
+            plt.figure(figsize=(12, 10))
+            ax = plt.gca()
+
+        if isinstance(original_vertices, SHPolygon):
+            x_orig, y_orig = original_vertices.exterior.xy
+        else:
+            x_orig = [point.x for point in original_vertices]
+            y_orig = [point.y for point in original_vertices]
+
+        # Calculate the centroid (center point) of the original footprint to use as offset
+        centroid_x = np.mean(x_orig)
+        centroid_y = np.mean(y_orig)
+
+        # Center all coordinates by subtracting the centroid
+        x_orig_centered = x_orig - centroid_x
+        y_orig_centered = y_orig - centroid_y
+
+        ax.scatter(x_orig_centered, y_orig_centered, color='black', s=100, edgecolor='black', zorder=10)
+
+        # Close the polygon if needed
+        if (x_orig_centered[0] != x_orig_centered[-1]) or (y_orig_centered[0] != y_orig_centered[-1]):
+            x_orig_centered = np.append(x_orig_centered, x_orig_centered[0])
+            y_orig_centered = np.append(y_orig_centered, y_orig_centered[0])
+
+
+        poly_orig = Polygon(np.column_stack([x_orig_centered, y_orig_centered]),
+                            facecolor=colors[0],  # First pastel color
+                            edgecolor='black',
+                            alpha=0.5)
+
+        ax.add_patch(poly_orig)
+
+        ax.set_aspect('equal')
+        ax.set_axis_off()
+        fig.tight_layout()
+
+        if title:
+            plt.title(title, fontsize=24)
+
+        if save_path:
+            plt.savefig(os.path.join(save_path,'original_footprint.png'), dpi=300, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
+
+        # Plot ground truth simplification
+        fig, ax = plt.subplots(figsize=(12, 10))
+
+        if isinstance(ground_truth_footprint, SHPolygon):
+            x_gt, y_gt = ground_truth_footprint.exterior.xy
+        else:
+            x_gt = [point.x for point in ground_truth_footprint]
+            y_gt = [point.y for point in ground_truth_footprint]
+
+        x_gt_centered = x_gt - centroid_x
+        y_gt_centered = y_gt - centroid_y
+
+        # Close the polygon if needed
+        if (x_gt_centered[0] != x_gt_centered[-1]) or (y_gt_centered[0] != y_gt_centered[-1]):
+            x_gt_centered = np.append(x_gt_centered, x_gt_centered[0])
+            y_gt_centered = np.append(y_gt_centered, y_gt_centered[0])
+
+        poly_gt = Polygon(np.column_stack([x_gt_centered, y_gt_centered]),
+                facecolor=colors[0],  # First pastel color
+                edgecolor='black',
+                alpha=0.5)
+        ax.add_patch(poly_gt)
+        ax.scatter(x_gt_centered, y_gt_centered, color='black', s=100, edgecolor='black', zorder=10)
+
+        ax.set_aspect('equal')
+        ax.set_axis_off()
+        fig.tight_layout()
+
+        if title:
+            plt.title(title, fontsize=24)
+
+        if save_path:
+            plt.savefig(os.path.join(save_path,'simplification_footprint.png'), dpi=300, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
+
 def plot_footprints_with_node_labels(original_vertices, gt_labels, pred_labels, save_path=None, title = None):
     """
     Plot original footprint, reconstructed footprint, and ground truth footprint.
