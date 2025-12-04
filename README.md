@@ -49,7 +49,7 @@ This project addresses building simplification through a multi-stage approach:
 Clone this repository:
 
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/maffos/self-supervised-footprint-cnn
 cd building-simplification
 ```
 
