@@ -1,6 +1,6 @@
 # Building Simplification
 
-A machine learning pipeline for building simplification using pretrained models on geometric features of local triangles. This project implements regression pretraining, classification, and building simplification tasks with a modular architecture.
+This is the official repository for the paper `Wamhoff, M., Baerenzung, J., Kaufhold, L., & Kada, M. (2025, November). CNN-Based Geometric Feature Embedding Using Coordinates for Cartographic Generalization Tasks on Building Footprints. In Proceedings of the ICA (Vol. 7, p. 26). Göttingen, Germany: Copernicus Publications.` It implements a machine learning pipeline for building simplification using pretrained models on geometric features of local triangles. This project implements regression pretraining, classification, and building simplification tasks with a modular architecture.
 
 ## Overview
 
@@ -145,16 +145,24 @@ The `src/plotting.py` module provides utilities for visualizing results, trainin
 
 ## License
 
-[Add your license information here]
-
+...
 ## Citation
 
 If you use this work in your research, please cite our publication:
 
 ```
-[Add citation information here]
+@inproceedings{wamhoff2025cnn,
+  title={CNN-Based Geometric Feature Embedding Using Coordinates for Cartographic Generalization Tasks on Building Footprints},
+  author={Wamhoff, Matthias and Baerenzung, Julien and Kaufhold, Lilli and Kada, Martin},
+  booktitle={Proceedings of the ICA},
+  volume={7},
+  pages={26},
+  year={2025},
+  organization={Copernicus Publications G{\"o}ttingen, Germany}
+}
+
 ```
 
 ## Support
 
-For questions or issues, please open an issue on GitHub or contact [your-contact-info].
+For questions or issues, please open an issue on GitHub or contact matthias.wamhoff@tu-berlin.de.
